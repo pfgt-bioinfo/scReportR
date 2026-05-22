@@ -1,0 +1,51 @@
+Package: scReportR
+Title: Single-Cell RNAseq Analysis Report Generator
+Version: 0.1.0
+Authors@R: 
+    person("Your", "Name", email = "your@email.com", role = c("aut", "cre"))
+Description: 
+    Provides a standardised workflow for single-cell RNAseq analysis,
+    including QC, preprocessing, normalisation, integration, clustering,
+    and automatic annotation. Generates a self-contained Quarto report
+    from a single params.yml configuration file.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    Seurat (>= 5.0.0),
+    SeuratObject,
+    yaml,
+    here,
+    dplyr,
+    tidyr,
+    tibble,
+    purrr,
+    stringr,
+    ggplot2,
+    patchwork,
+    ggrepel,
+    viridis,
+    RColorBrewer,
+    scales,
+    scCustomize,
+    SingleCellExperiment,
+    scDblFinder,
+    celda,
+    celldex,
+    SingleR,
+    BiocParallel,
+    qs2,
+    DT,
+    glue,
+    cli,
+    rlang,
+    scrapper
+Suggests:
+    Azimuth,
+    clustree,
+    pheatmap,
+    ggalluvial,
+    quarto,
+    knitr,
+    rmarkdown

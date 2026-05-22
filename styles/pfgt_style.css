@@ -1,0 +1,169 @@
+/* ============================================
+   COLOUR VARIABLES
+   ============================================ */
+:root {
+  /* Main colours */
+  --darker-col: #006694;   /* original blue (CRCL) : #006694 */
+  --lighter-col: #6c9929;  /* original green (synergie) : #88bc39 */
+  --third-col: #991e4e;    /* original pink (CLB) : #db2b70 */
+  --fourth-col: #b66d1c;   /* original orange (CRCL) : #f29125 */
+  --third-col-3: #C47E99;  /* lighter version of pink */
+  --darker-col-3: #6DA7C1; /* lighter version of blue */
+  
+   /* Text colour */
+  --text-col: #333333;
+}
+
+/* ============================================
+   LEVEL 1 HEADINGS (H1)
+   ============================================ */
+
+/* Main document title */
+h1.title {
+  font-size: 28px;
+}
+
+/* Section h1 headings */
+h1 {
+  color: var(--darker-col);
+  font-size: 24px;
+}
+
+h1 span.header-section-number {
+  color: var(--third-col);
+  font-size: 24px;
+}
+
+/* ============================================
+   LEVEL 2 HEADINGS (H2)
+   ============================================ */
+
+h2 {
+  color: var(--lighter-col);
+  font-size: 20px;
+  border-bottom: none;
+}
+
+h2 span.header-section-number {
+  color: var(--third-col);
+  font-size: 20px;
+}
+
+/* ============================================
+   LEVEL 3 HEADINGS (H3)
+   ============================================ */
+
+h3 {
+  color: var(--third-col);
+  font-size: 18px;
+}
+
+h3 span.header-section-number {
+  color: var(--third-col);
+  font-size: 18px;
+}
+
+/* ============================================
+   LEVEL 4 HEADINGS (H4)
+   ============================================ */
+
+h4 {
+  color: var(--text-col);
+  font-size: 16px;
+}
+
+h4 span.header-section-number {
+  color: var(--third-col);
+  font-size: 16px;
+}
+
+/* ============================================
+   LEVEL 5 HEADINGS (H5)
+   ============================================ */
+
+h5 {
+  color: var(--third-col-3);
+  font-size: 16px;
+}
+
+h5 span.header-section-number {
+  color: var(--third-col-3);
+  font-size: 16px;
+}
+
+/* ============================================
+   DESCRIPTION AND BODY TEXT
+   ============================================ */
+
+div.description {
+  color: var(--lighter-col);
+  font-size: 18px;
+}
+
+body {
+  text-align: justify;
+  color: var(--text-col);
+  font-size: 16px;
+}
+
+/* ============================================
+   LINKS
+   ============================================ */
+
+a:link {
+  text-decoration: none;
+  color: var(--darker-col);
+}
+
+a:visited {
+  color: var(--darker-col);
+}
+
+a span.header-section-number {
+  color: var(--third-col);
+}
+
+/* ============================================
+   LISTS
+   ============================================ */
+
+li::marker {
+  color: var(--third-col);
+}
+
+.list-group-item.active,
+.list-group-item.active:focus,
+.list-group-item.active:hover {
+  background-color: var(--darker-col-3);
+}
+
+/* ============================================
+   TABLES
+   ============================================ */
+
+.datatables {
+  overflow: auto;
+}
+
+td {
+  white-space: nowrap;
+}
+
+/* ============================================
+   TABS
+   ============================================ */
+
+.nav-tabs .nav-link.active {
+  background-color: var(--third-col) !important;
+  color: white !important;
+  border-color: var(--third-col) !important;
+}
+
+.nav-tabs .nav-link:hover {
+  background-color: var(--lighter-col) !important;
+  color: white !important;
+}
+
+.nav-tabs .nav-link {
+  color: var(--darker-col);
+}

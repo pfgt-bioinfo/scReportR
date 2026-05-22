@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <!-- Link to your css file -->
+    <link rel="stylesheet" href="styles/pfgt_style.css">
+    <link rel="stylesheet" href="styles/pfgt_header.css">
+</head>
+
+<script>
+    window.addEventListener("scroll", () => {
+      if (window.scrollY > 50) {
+        document.body.classList.add("hide-header");
+      } else {
+        document.body.classList.remove("hide-header");
+      }
+    });
+</script>
+
+<img src="styles/logo_PFGT.png" class="header-logo">
+
+<a href="https://www.crcl.fr/les-plateformes/plateforme-de-bioinformatique-gilles-thomas/" target="_blank"> <img src="styles/logo_PFGT.png" class="header-logo">
+
+<link rel="shortcut icon" href="styles/logo_PFGT.png" />
+
+<div class="header-container">
+  <div class="custom-header">
+    <h1>{{< meta title >}}</h1>
+    <div class="subtitle">{{< meta subtitle >}}</div>
+  </div>
+</div>

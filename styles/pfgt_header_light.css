@@ -1,0 +1,96 @@
+/* ============================================
+   CUSTOM HEADER WITH BANNER
+   ============================================ */
+
+/* White banner at the top */
+body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 150px;
+  background: #ffffff;
+  z-index: 999;
+}
+
+/* Gradient bar at the bottom of the banner */
+body::after {
+  content: "";
+  position: fixed;
+  top: 150px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: linear-gradient(135deg, var(--darker-col) 0%, var(--lighter-col) 50%, var(--third-col) 75%);
+  z-index: 999;
+}
+
+/* Main content - offset for the banner */
+body {
+  padding-top: 165px;
+  transition: padding-top 0.30s ease;
+}
+
+/* Fixed logo in the top right */
+.header-logo {
+  position: fixed;
+  top: 0;
+  right: 5%;
+  height: 150px;
+  z-index: 1000;
+  transition: transform 0.30s ease, opacity 0.30s ease;
+}
+
+/* Header container */
+.header-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 150px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+}
+
+/* Custom title area */
+.custom-header {
+  margin-left: 5%;
+  color: var(--third-col);
+  max-width: 800px;
+  min-width: 0;
+}
+
+.custom-header h1 {
+  font-size: 32px;
+  margin: 0;
+  line-height: 1.25;
+  white-space: normal;
+  color: var(--darker-col);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Hidden state on scroll */
+body.hide-header::before,
+body.hide-header::after {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+body.hide-header .header-container,
+body.hide-header .header-logo {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+body.hide-header {
+  padding-top: 20px;
+}
+
+/* Hide default Quarto header */
+h1.title,
+.subtitle.lead {
+  display: none;
+}

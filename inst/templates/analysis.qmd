@@ -1,0 +1,688 @@
+---
+title: "scRNAseq Analysis — {{PROJECT_NAME}}"
+subtitle: "{{PROJECT_NAME}}"
+author: "{{AUTHOR}}"
+date: today
+date-format: "DD MMMM YYYY"
+ormat:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    toc-title: "Table of contents"
+    toc-expand: false
+    number-sections: true
+    colorlinks: true
+    self-contained: true
+    code-fold: true
+    code-tools: true
+    code-summary: "Show code"
+    smooth-scroll: true
+    page-layout: full
+    highlight-style: github
+    theme: cosmo
+    df-print: paged
+    lightbox: true
+    embed-resources: true
+    fig-width: 12
+    fig-height: 7
+    fig-dpi: 150
+include-in-header: styles/pfgt_style_light.html
+execute:
+  echo: true
+  warning: false
+  message: false
+knitr:
+  opts_chunk:
+    comment: ""
+    dev: "ragg_png"
+---
+
+```{r setup, include=FALSE}
+library(scReportR)
+library(patchwork)
+library(DT)
+
+cfg             <- sc_config("params.yml")
+thresholds_list <- sc_qc_all_thresholds(cfg)
+```
+
+# Project overview
+
+```{r overview}
+tibble::tibble(
+  Parameter = c("Date", "Samples", "Normalisation",
+                "Integration", "Default resolution"),
+  Value = c(
+    as.character(Sys.Date()),
+    nrow(sc_sample_meta(cfg)),
+    cfg$normalization$method,
+    cfg$integration$method,
+    cfg$clustering$default_resolution
+  )
+) |> DT::datatable(rownames = FALSE, colnames = NULL,
+                   options = list(dom = "t"))
+```
+
+```{r sample-table}
+sc_sample_meta(cfg) |>
+  dplyr::mutate(data_exists = file.exists(path)) |> dplyr::select(-path, -raw_path) |>
+  DT::datatable(rownames = FALSE, caption = "Sample table",
+                options = list(scrollX = TRUE))
+```
+
+---
+
+# Quality Control
+
+::: callout-note
+Quality control identifies and removes low-quality cells before downstream
+analysis. Key metrics are: number of detected genes (`nFeature_RNA`),
+total UMI counts (`nCount_RNA`), percentage of mitochondrial reads
+(`percent.mt`), and cell complexity (`log10(nGenes)/log10(nUMI)`).
+
+High mitochondrial content typically indicates a damaged or dying cell.
+Low complexity suggests an empty droplet or poor-quality cell.
+:::
+
+## Cell counts
+
+```{r load-data}
+obj_list <- sc_load(cfg)
+```
+
+```{r cell-counts, fig.height=4}
+sc_plot_cell_counts(obj_list, x = "sample_id", fill = "library_type",
+                    cfg = cfg, title = "Raw cell counts per sample")
+```
+
+## Genes and UMI distribution
+
+```{r gene-counts, fig.height=4}
+sc_plot_qc_distri(obj_list, cfg = cfg)
+```
+
+::: callout-note
+Each point is one sample. Wide spread across samples may indicate
+variable sequencing depth or technical differences between library
+types — check the violin plots below for within-sample distributions.
+:::
+
+::: {.callout-note collapse="true"}
+## Summary table
+
+```{r qc-summary-table}
+sc_qc_summary(obj_list) |>
+  DT::datatable(rownames = FALSE, options = list(scrollX = TRUE))
+```
+:::
+
+## Configured thresholds
+
+```{r thresholds-plot, fig.height=3.5}
+sc_plot_thresholds(thresholds_list, cfg)
+```
+
+::: {.callout-tip collapse="true"}
+## Full threshold table
+
+```{r thresholds-table}
+sc_qc_thresholds_df(thresholds_list, cfg) |>
+  DT::datatable(rownames = FALSE, options = list(scrollX = TRUE))
+```
+
+Adjust per-sample overrides in `params.yml → qc → per_sample`, then
+re-render. Red items above have a per-sample override active.
+:::
+
+## QC distributions
+
+```{r qc-violins, fig.height=6}
+sc_plot_qc_violins(obj_list, thresholds_list, cfg)
+```
+
+::: callout-note
+Red dashed lines show per-sample thresholds. Segments at different
+heights indicate per-sample overrides configured in `params.yml`.
+:::
+
+## Scatter plots {.tabset}
+
+```{r qc-scatter, results='asis', fig.height=4}
+sc_plot_qc_scatter(obj_list, thresholds_list) |>
+  sc_tabset()
+```
+
+## Cell complexity
+
+```{r complexity, fig.height=6}
+sc_plot_complexity(obj_list, cfg)
+```
+
+::: callout-note
+Complexity (`log10(nGenes) / log10(nUMI)`) identifies degraded cells
+independently of absolute gene count thresholds. Cells below 0.8
+(dashed line) are typically removed — they often represent empty
+droplets or cells with abnormally few genes relative to their UMI count.
+:::
+
+---
+
+# Preprocessing
+
+::: callout-note
+Preprocessing removes technical artefacts before biological analysis:
+
+1. **Permissive pre-filter** — removes obvious empty droplets
+   (nFeature < 100) without biasing ambient RNA estimation.
+2. **Ambient RNA decontamination** (decontX) — estimates and removes
+   RNA from lysed cells that contaminates the droplet soup.
+3. **Doublet detection** (scDblFinder) — flags droplets containing
+   two cells, which would otherwise appear as artificial hybrid cell types.
+4. **Final QC filtering** — applies the per-sample thresholds above.
+:::
+
+## Ambient RNA decontamination (decontX)
+
+```{r decontX}
+obj_list_prefilt <- lapply(obj_list, sc_prefilter)
+obj_list_decontX <- sc_decontX(obj_list_prefilt, cfg)
+```
+
+```{r decontX-status}
+tibble::tibble(
+  Sample     = names(obj_list_decontX),
+  Background = sapply(obj_list_decontX, function(o) {
+    ifelse(isTRUE(unique(o$decontX_background)),
+           "\u2714 raw matrix", "\u26a0 no background")
+  })
+) |> DT::datatable(rownames = FALSE, options = list(dom = "t"))
+```
+
+```{r decontX-plot, fig.height=5}
+sc_plot_decontX(obj_list_decontX, cfg)
+```
+
+::: callout-note
+- Score near **0** = clean cell
+- Score near **1** = heavily contaminated (ambient RNA)
+
+Samples without a `raw_path` in `params.yml` ran in no-background mode
+(⚠) — scores are less accurate. Add `raw_path` pointing to
+`raw_feature_bc_matrix` to improve estimation.
+
+The `decontX$use_decontX_counts` option in `params.yml` (default: `false`)
+replaces raw counts with decontaminated counts for all downstream steps.
+:::
+
+## Doublet detection (scDblFinder)
+
+```{r doublets}
+obj_list_dbl <- sc_doublets(obj_list_decontX, cfg)
+```
+
+```{r doublets-plot, fig.height=4}
+sc_plot_doublets(obj_list_dbl, cfg)
+```
+
+::: callout-tip
+Expected doublet rate for 10x Genomics is approximately 0.8% per 1,000
+cells loaded. Higher rates may indicate overloading of the chip.
+Doublets are removed in the filtering step below.
+:::
+
+## Filtering
+
+```{r filter}
+obj_list_filtered <- sc_filter(obj_list_dbl, thresholds_list,
+                                remove_doublets = TRUE)
+```
+
+```{r filter-waterfall, fig.height=4}
+waterfall <- dplyr::bind_rows(
+  tibble::tibble(sample  = names(obj_list),
+                 step    = "1. Raw",
+                 n_cells = unname(sapply(obj_list, ncol))),
+  tibble::tibble(sample  = names(obj_list_prefilt),
+                 step    = "2. Pre-filter",
+                 n_cells = unname(sapply(obj_list_prefilt, ncol))),
+  tibble::tibble(sample  = names(obj_list_filtered),
+                 step    = "3. Final",
+                 n_cells = unname(sapply(obj_list_filtered, ncol)))
+) |>
+  dplyr::mutate(step = factor(step,
+                              levels = c("1. Raw", "2. Pre-filter", "3. Final")))
+
+sc_plot_filter_waterfall(waterfall, cfg)
+```
+
+::: {.callout-note collapse="true"}
+## Filtering summary table
+
+```{r filter-table}
+tibble::tibble(
+  Sample  = names(obj_list),
+  Raw     = sapply(obj_list, ncol),
+  Final   = sapply(obj_list_filtered[names(obj_list)], ncol),
+  Removed = Raw - Final,
+  Pct     = round(100 * Removed / Raw, 1)
+) |> DT::datatable(rownames = FALSE)
+```
+:::
+
+## Merge
+
+```{r merge}
+merged <- sc_merge(obj_list_filtered, cfg)
+```
+
+```{r merge-composition, fig.height=4}
+# Adjust x and fill to the metadata columns available in your project
+sc_plot_cell_counts(merged, x = "sample_id", fill = "library_type",
+                    cfg = cfg, title = "Merged object composition")
+```
+
+::: callout-note
+In Seurat v5, RNA layers remain **separate** after merge — this is
+intentional. `JoinLayers()` is called automatically after integration
+to enable `FindMarkers()`.
+:::
+
+---
+
+# Normalisation & Integration
+
+::: callout-note
+**Normalisation** (`r cfg$normalization$method`) removes technical
+variation in sequencing depth so that gene expression values are
+comparable across cells.
+
+**Integration** (`r cfg$integration$method`) corrects for batch effects
+between samples, aligning cells of the same type regardless of which
+sample they came from, while preserving true biological variation.
+:::
+
+## Normalisation
+
+```{r normalize}
+merged <- sc_normalize(merged, cfg)
+```
+
+## Highly variable genes
+
+```{r hvg, fig.height=5}
+scCustomize::VariableFeaturePlot_scCustom(
+  seurat_object = merged, num_features = 20, repel = TRUE
+)
+```
+
+::: callout-note
+Highly variable genes (HVGs) capture the most biologically informative
+variation across cells and are used as input for PCA. The top 20 are
+labelled above.
+:::
+
+## PCA
+
+```{r pca-tabset, results='asis', fig.height=6, fig.width=10}
+# Show cells coloured by key metadata variables in PCA space
+# (before integration — useful to visualise batch effects)
+sc_plot_pca_cols(merged,
+  cols = c("sample_id", "library_type"),
+  cfg  = cfg
+) |> sc_tabset()
+```
+
+```{r elbow, fig.height=3, fig.width=4}
+sc_plot_elbow(merged, cfg)
+```
+
+::: callout-tip
+Use the elbow plot to choose `pcs_use` in `params.yml`. The red line
+shows the current value (`r cfg$normalization$pcs_use` PCs). Pick the
+point where the curve flattens — adding more PCs provides diminishing
+returns.
+:::
+
+## Integration
+
+Corrected covariates: `r paste(unlist(cfg$integration$group_by), collapse = ", ")`
+
+```{r integrate}
+merged <- sc_integrate(merged, cfg)
+```
+
+```{r integration-check, results='asis', fig.height=6, fig.width=10}
+sc_plot_umap_cols(merged,
+  cols = c("sample_id", "library_type"),
+  cfg  = cfg
+) |> sc_tabset()
+```
+
+::: callout-note
+After successful integration, cells of the same type should overlap
+across samples while retaining biological separation. If samples remain
+clustered separately, try increasing `harmony_theta` (stronger
+correction) or switching to `RPCAIntegration` in `params.yml`.
+:::
+
+---
+
+# Clustering
+
+::: callout-note
+Clustering groups cells with similar transcriptional profiles. The
+**Leiden algorithm** (algorithm 4) is used here — it produces more
+stable communities than Louvain for single-cell data.
+
+Multiple resolutions are tested simultaneously. Higher resolutions
+produce more, finer-grained clusters. Use **clustree** to identify the
+resolution where cluster assignments stabilise, then set
+`default_resolution` in `params.yml`.
+:::
+
+Algorithm: **`r ifelse(cfg$clustering$algorithm == 4, "Leiden", "Louvain")`**
+| Resolutions: `r paste(cfg$clustering$resolutions, collapse = ", ")`
+
+```{r cluster}
+merged <- sc_cluster(merged, cfg)
+```
+
+## Cluster stability (clustree)
+
+```{r clustree, out.width='70%'}
+library(clustree)
+sc_plot_clustree(merged, cfg$clustering$resolutions)
+```
+
+::: callout-tip
+In clustree, stable clusters appear as nodes that persist across multiple
+resolutions. Nodes that immediately split may indicate over-clustering.
+Choose the resolution just before major instability appears.
+:::
+
+## UMAP — all resolutions {.tabset}
+
+```{r umap-resolutions, results='asis', fig.height=6, fig.width=10}
+sc_tabset_resolutions(merged, cfg$clustering$resolutions)
+```
+
+## UMAP — default resolution (`r cfg$clustering$default_resolution`)
+
+```{r umap-clustering, results='asis', fig.height=6, fig.width=10}
+res_col <- paste0("clusters_res", cfg$clustering$default_resolution)
+
+sc_plot_umap_cols(merged,
+  cols = c(res_col, "sample_id", "library_type"),
+  cfg  = cfg
+) |> sc_tabset()
+```
+
+## Cluster composition
+
+```{r cluster-composition, results='asis', fig.height=5}
+# Adjust cols to the metadata columns available in your project
+sc_plot_cluster_composition(merged,
+  cols = intersect(c("library_type", "tissue", "population"),
+                   colnames(merged@meta.data)),
+  cfg  = cfg
+)
+```
+
+::: callout-note
+Clusters dominated by a single sample or library type may reflect
+technical rather than biological differences. These should be examined
+carefully before annotation.
+:::
+
+
+## Meta composition
+
+```{r meta-composition, results='asis', fig.height=5}
+sc_plot_cluster_composition(merged,
+  cols    = c("sample_id","tissue", "library_type", "population"),
+  cfg     = cfg,
+  reverse = TRUE, legend="right"
+)
+```
+
+---
+
+# Marker Analysis
+
+::: callout-note
+Differential expression between clusters identifies the genes that best
+define each cluster (**top markers**). These are used to:
+
+1. Build a **heatmap** summarising cluster identity at a glance.
+2. Compute **module scores** — a per-cell signature score for each
+   cluster's marker programme, projected on the UMAP.
+3. Cross-reference against **known canonical markers** to guide
+   manual annotation.
+:::
+
+## Top markers per cluster
+
+```{r find-markers}
+markers_df <- sc_find_markers(merged, cfg)
+```
+
+```{r markers-heatmap, fig.height=12}
+sc_plot_markers_heatmap(merged, markers_df, n_top = 5)
+```
+
+::: {.callout-note collapse="true"}
+## Full markers table
+
+```{r markers-table}
+if (!is.null(markers_df) && nrow(markers_df) > 0) {
+  markers_df |>
+    dplyr::group_by(cluster) |>
+    dplyr::slice_max(avg_log2FC, n = 100, with_ties = FALSE) |>
+    DT::datatable(rownames = FALSE, filter = "top",
+                  options  = list(scrollX = TRUE, pageLength = 20))
+}
+```
+:::
+
+## Cluster module scores
+
+```{r module-scores}
+merged <- sc_module_scores(merged, markers_df, cfg, n_top = 20)
+```
+
+```{r module-scores-umap, results='asis', fig.height=6}
+sc_plot_module_scores(merged, cfg)
+```
+
+::: callout-note
+Each panel shows the module score for one cluster's top `r 20` marker
+genes projected onto the UMAP. Cells of the corresponding cluster
+should show the highest scores (warm colours). Diffuse high scores in
+multiple clusters may indicate shared cell programmes (e.g. cycling
+cells, stress response).
+:::
+
+## Known marker projection {.tabset}
+
+```{r known-markers, results='asis', fig.height=6}
+cat("\n::: {.panel-tabset}\n")
+for (cell_type in names(cfg$markers)) {
+  cat("\n##", cell_type, "\n\n")
+  sc_plot_umap_cols(merged,
+                    cols = unlist(cfg$markers[[cell_type]])) |>
+    sc_tabset()
+  cat("\n")
+}
+cat("\n:::\n")
+```
+
+## DotPlot — global view
+
+```{r dotplot, fig.height=8, fig.width=16}
+sc_plot_markers_dot(merged, cfg$markers, cfg)
+```
+
+::: callout-note
+The dot plot shows average expression (colour) and percentage of
+expressing cells (size) for each marker gene across clusters.
+Canonical markers expressed in a cluster confirm the cell type identity
+suggested by automated annotation below.
+:::
+
+---
+
+# Cell Type Annotation
+
+::: callout-note
+Automated annotation uses reference datasets to assign cell type labels
+to each cluster without manual inspection of every marker gene.
+
+**SingleR** compares each cell's expression profile to bulk RNA-seq
+reference datasets (celldex) and assigns the most similar cell type
+label.
+
+**Pan-Human Azimuth** uses a neural network classifier trained on 23
+human tissues to assign hierarchical cell ontology labels.
+
+Automated annotations should always be validated against the known
+marker projections above before being used in downstream analyses.
+:::
+
+## SingleR
+
+```{r singler}
+merged <- sc_singler(merged, cfg)
+```
+
+```{r singler-umaps, results='asis', fig.height=5}
+if (isTRUE(cfg$annotation$singler$run)) {
+  cat("\n::: {.panel-tabset}\n")
+  for (ref in cfg$annotation$singler$references) {
+    cat("\n##", ref, "\n\n")
+    sc_plot_umap_cols(merged,
+      cols = c(
+        paste0("singler_", gsub("Data$", "", ref), "_label"),
+        paste0("singler_", gsub("Data$", "", ref), "_pruned")
+      )
+    ) |> sc_tabset()
+    cat("\n")
+  }
+  cat("\n:::\n")
+}
+```
+
+```{r singler-heatmaps, results='asis', fig.height=7}
+if (isTRUE(cfg$annotation$singler$run)) {
+  cat("\n::: {.panel-tabset}\n")
+  for (ref in cfg$annotation$singler$references) {
+    cat("\n##", ref, "\n\n")
+    print(sc_plot_singler_heatmap(merged, ref, cfg))
+    cat("\n")
+  }
+  cat("\n:::\n")
+}
+```
+
+::: callout-note
+**Pruned labels** (second tab per reference) set uncertain predictions
+to `NA` — cells where no reference type is a good match. High
+proportions of `NA` cells may indicate a novel cell type, low quality,
+or a mismatch between your tissue and the reference.
+:::
+
+## Pan-Human Azimuth
+
+```{r panhuman-azimuth}
+merged <- sc_panhuman_azimuth(merged, cfg)
+```
+
+```{r azimuth-umaps, results='asis', fig.height=6, eval=isTRUE(cfg$annotation$panhuman_azimuth$run)}
+az_cols <- c("azimuth_broad", "azimuth_medium", "azimuth_fine")
+az_cols <- az_cols[az_cols %in% colnames(merged@meta.data)]
+sc_plot_umap_cols(merged, cols = az_cols) |> sc_tabset()
+```
+
+```{r azimuth-score, fig.height=5, eval=isTRUE(cfg$annotation$panhuman_azimuth$run)}
+if ("final_level_softmax_prob" %in% colnames(merged@meta.data)) {
+  sc_plot_umap_cols(merged, cols = "final_level_softmax_prob")[[1]]
+}
+```
+
+::: callout-note
+`azimuth_broad` → `azimuth_medium` → `azimuth_fine` represent
+increasingly granular levels of the cell type hierarchy.
+`final_level_softmax_prob` is the prediction confidence — cells below
+0.5 should be interpreted with caution.
+:::
+
+## Manual annotation
+
+::: callout-tip
+Fill in the vector below using the marker heatmap, known marker
+projections, and automated annotation results as guides. Cluster IDs
+are listed in the suggestion table below.
+:::
+
+```{r singler-suggestion}
+ref1 <- cfg$annotation$singler$references[[1]]
+if (!is.null(ref1)) {
+  col_lab     <- paste0("singler_", gsub("Data$", "", ref1), "_label")
+  cluster_col <- paste0("clusters_res", cfg$clustering$default_resolution)
+
+  if (col_lab %in% colnames(merged@meta.data)) {
+    merged@meta.data |>
+      dplyr::group_by(.data[[cluster_col]]) |>
+      dplyr::count(.data[[col_lab]]) |>
+      dplyr::slice_max(n, n = 1) |>
+      dplyr::rename(Cluster = 1, Top_SingleR = 2, N_cells = n) |>
+      DT::datatable(rownames = FALSE,
+                    caption  = paste0("Top SingleR label per cluster (",
+                                      ref1, ")"))
+  }
+}
+```
+
+```{r manual-annotation}
+# ⚠️  Fill in after inspecting annotation results above  ⚠️
+#
+# annotation_manual <- c(
+#   "1"  = "CD8 T cells",
+#   "2"  = "CD4 T cells",
+#   "3"  = "NK cells",
+#   "4"  = "B cells",
+#   "5"  = "Monocytes",
+#   "6"  = "Tumor cells",
+#   "7"  = "Fibroblasts",
+#   "8"  = "Treg",
+#   "9"  = "pDC",
+#   "10" = "Plasma cells",
+#   "11" = "Cycling"
+# )
+#
+# merged <- sc_annotate_manual(merged, annotation_manual, cfg)
+# sc_plot_annotation(merged)
+```
+
+---
+
+# Export
+
+```{r export}
+sc_export_metadata(merged, cfg)
+
+qs2::qs_save(merged,
+             file.path(sc_cache_dir(cfg), "final_annotated.qs2"))
+```
+
+::: callout-note
+To free disk space after finalising the analysis, run:
+
+```r
+sc_cache_finalize(cfg, dry_run = TRUE)   # preview what will be removed
+sc_cache_finalize(cfg, dry_run = FALSE)  # confirm deletion
+```
+
+This keeps only `01_raw_objects.qs2` and `final_annotated.qs2`.
+The full analysis can be reproduced from the raw object at any time.
+:::

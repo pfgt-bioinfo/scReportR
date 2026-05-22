@@ -1,0 +1,26 @@
+# R
+.Rhistory
+.Rapp.history
+.RData
+.Ruserdata
+.Rproj.user/
+*.Rproj
+
+# Package build
+*.tar.gz
+*.zip
+/doc/
+/Meta/
+/man/*.rd.bak
+NAMESPACE.bak
+
+# Cache and outputs (project-specific, not package files)
+cache/
+output/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# RStudio
+.Rproj.user

@@ -1,0 +1,141 @@
+# =============================================================================
+# params.yml — {{PROJECT_NAME}}
+# Edit this file to configure your analysis.
+# =============================================================================
+
+project:
+  name: "{{PROJECT_NAME}}"
+  author: "{{AUTHOR}}"
+  output_dir: "output"
+  cache_dir: "cache"
+  seed: 42
+
+# =============================================================================
+# SAMPLES
+# library_type : "OCM" | "3pv4" | "5p" | "multiome"
+# raw_path     : path to raw_feature_bc_matrix (optional but recommended for decontX)
+# population   : free label (CD45neg, CD45pos, sorted_immune, etc.)
+# tissue       : T1, T2, T3, ... or descriptive label
+# =============================================================================
+samples:
+{{SAMPLES_BLOCK}}
+
+# =============================================================================
+# QC
+# Default thresholds apply to all samples.
+# Per-sample overrides replace the default for that sample only.
+# =============================================================================
+qc:
+  run_prefilter_umap: false
+
+  defaults:
+    min_features: 200
+    max_features: 8000
+    min_counts: 500
+    max_counts: 60000
+    max_mt_percent: 20
+    max_rb_percent: 50
+    min_log10_genes_per_umi: 0.8
+    max_conta: 0.5
+
+  per_sample: {}   # add per-sample overrides here, e.g.:
+  # per_sample:
+  #   sample_01:
+  #     max_features: 12000
+  #     max_mt_percent: 25
+
+# =============================================================================
+# DECONTAMINATION — decontX
+# =============================================================================
+decontX:
+  run: true
+  delta: [10, 10]
+  contamination_threshold: 0.2
+  use_decontX_counts: false
+
+# =============================================================================
+# NORMALISATION
+# =============================================================================
+normalization:
+  method: "SCTransform"    # "SCTransform" | "LogNormalize"
+  sct_flavor: "v2"
+  vars_to_regress: ["percent.mt"]
+  n_variable_features: 3000
+  n_pcs: 50
+  pcs_use: 30
+
+# =============================================================================
+# INTEGRATION
+# =============================================================================
+integration:
+  method: "Harmony"        # "Harmony" | "RPCAIntegration" | "CCAIntegration" | "none"
+  group_by: ["sample_id"]
+  harmony_theta: 2
+  harmony_max_iter: 10
+
+# =============================================================================
+# CLUSTERING
+# =============================================================================
+clustering:
+  algorithm: 4             # 4 = Leiden (recommended)
+  resolutions: [0.2, 0.4, 0.6, 0.8, 1.0, 1.2]
+  default_resolution: 0.6
+  findmarkers_min_pct: 0.1
+  findmarkers_logfc: 0.25
+
+# =============================================================================
+# KNOWN MARKERS — adapt to your tissue / biological question
+# =============================================================================
+markers:
+  T_cells:    ["CD3D", "CD3E", "CD3G", "TRAC", "TRBC1"]
+  CD8_T:      ["CD8A", "CD8B", "GZMB", "GZMK", "PRF1"]
+  CD4_T:      ["CD4", "IL7R", "TCF7", "FOXP3", "IL2RA"]
+  Treg:       ["FOXP3", "IL2RA", "CTLA4", "IKZF2"]
+  NK:         ["GNLY", "NKG7", "KLRD1", "NCAM1", "FCGR3A"]
+  B_cells:    ["CD19", "MS4A1", "CD79A", "CD79B"]
+  Plasma:     ["MZB1", "JCHAIN", "XBP1", "SDC1"]
+  Monocytes:  ["CD14", "LYZ"]
+  Neutrohpils: ["S100A8", "FCGR3A"]
+  cDC:        ["FCER1A", "CD1C", "CLEC9A", "XCR1"]
+  pDC:        ["LILRA4", "CLEC4C", "IL3RA", "TCF4"]
+  Mast:       ["TPSAB1", "TPSB2", "KIT", "CPA3"]
+  Tumor:      ["EPCAM", "KRT19", "KRT7", "KRT8"]
+  Fibroblasts: ["FAP", "COL1A1", "COL1A2", "ACTA2"]
+  Endothelial: ["PECAM1", "VWF", "CDH5", "CLDN5"]
+  Cycling:    ["MKI67", "TOP2A", "CDK1", "PCNA"]
+  Exhaustion: ["PDCD1", "HAVCR2", "TIGIT", "LAG3"]
+
+# =============================================================================
+# ANNOTATION
+# =============================================================================
+annotation:
+  singler:
+    run: true
+    references:
+      - "HumanPrimaryCellAtlasData"
+      - "BlueprintEncodeData"
+    label_type: "label.main"
+    de_method: "wilcox"
+
+  panhuman_azimuth:
+    run: true
+    min_score: 0.5   # cells below this score flagged as uncertain
+    
+# =============================================================================
+# COLOURS — all optional, defaults are auto-generated
+# =============================================================================
+colors:
+  tissue:
+    T1: "#E69F00"
+    T2: "#56B4E9"
+    T3: "#009E73"
+  library_type:
+    OCM:  "#CC79A7"
+    3pv4: "#0072B2"
+  population:
+    CD45neg:      "#D55E00"
+    CD45pos:      "#F0E442"
+    sorted_immune: "#999999"
+  samples:
+    sample_01: "#E69F00"
+    sample_02: "#56B4E9"
