@@ -72,6 +72,17 @@ init_sc_report <- function(project_name,
       AUTHOR       = author
     )
   )
+  
+  # ── Copy styles directory ───────────────────────────────────────────────────
+  styles_src  <- file.path(tmpl_dir, "styles")
+  styles_dest <- file.path(proj_dir, "styles")
+  
+  if (dir.exists(styles_src)) {
+    dir.create(styles_dest, showWarnings = FALSE)
+    files <- list.files(styles_src, full.names = TRUE)
+    file.copy(files, styles_dest)
+    cli::cli_alert_success("Styles copied: {length(files)} file(s)")
+  }
 
   # ── RStudio project file ────────────────────────────────────────────────────
   rproj_content <- paste0(

@@ -95,7 +95,7 @@ markers:
   B_cells:    ["CD19", "MS4A1", "CD79A", "CD79B"]
   Plasma:     ["MZB1", "JCHAIN", "XBP1", "SDC1"]
   Monocytes:  ["CD14", "LYZ"]
-  Neutrohpils: ["S100A8", "FCGR3A"]
+  Neutrohpils: ["S100A8", "CSF3R"]
   cDC:        ["FCER1A", "CD1C", "CLEC9A", "XCR1"]
   pDC:        ["LILRA4", "CLEC4C", "IL3RA", "TCF4"]
   Mast:       ["TPSAB1", "TPSB2", "KIT", "CPA3"]

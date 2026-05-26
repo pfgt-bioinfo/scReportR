@@ -3,6 +3,74 @@
 # Clustering and marker visualisation — all return ggplot objects.
 # =============================================================================
 
+# ── HVG plot ─────────────────────────────────────
+
+#' Highly variable genes plot
+#'
+#' Handles both SCTransform v2 and LogNormalize workflows automatically.
+#'
+#' @param merged  Normalised Seurat object.
+#' @param n_label Number of top HVGs to label.
+#' @return A ggplot object.
+#' @export
+sc_plot_hvg <- function(merged, n_label = 20L) {
+  
+  method <- if ("SCT" %in% names(merged@assays)) "SCT" else "LogNormalize"
+  
+  if (method == "SCT") {
+    hvg      <- Seurat::VariableFeatures(merged)
+    attrs    <- merged[["SCT"]]@SCTModel.list[[1]]@feature.attributes
+    hvg_df   <- data.frame(
+      gene              = rownames(attrs),
+      mean              = attrs$gmean,
+      residual_variance = attrs$residual_variance,
+      is_hvg            = rownames(attrs) %in% hvg
+    ) |> dplyr::arrange(dplyr::desc(residual_variance))
+    
+    top_genes <- head(hvg_df$gene[hvg_df$is_hvg], n_label)
+    
+    ggplot2::ggplot(hvg_df,
+                    ggplot2::aes(x     = mean,
+                                 y     = residual_variance,
+                                 color = is_hvg,
+                                 label = gene)) +
+      ggplot2::geom_point(size = 0.6, alpha = 0.6) +
+      ggrepel::geom_text_repel(
+        data         = dplyr::filter(hvg_df, gene %in% top_genes),
+        size         = 3,
+        max.overlaps = 20
+      ) +
+      ggplot2::scale_color_manual(
+        values = c("FALSE" = "black", "TRUE" = "red"),
+        labels = c("Other", "HVG"),
+        name   = NULL
+      ) +
+      ggplot2::scale_x_log10() +
+      ggplot2::labs(title = "Highly variable genes (SCTransform v2)",
+                    x     = "Geometric mean expression",
+                    y     = "Residual variance") +
+      ggplot2::theme_bw() +
+      ggplot2::theme(legend.position = "bottom")
+    
+  } else {
+    # LogNormalize — use scCustomize
+    meta  <- Seurat::HVFInfo(merged, assay = "RNA")
+    hvg   <- Seurat::VariableFeatures(merged)  # non triés en v5
+    
+    # Trier explicitement par variance standardisée décroissante
+    top_genes <- meta[hvg, ] |>
+      dplyr::arrange(dplyr::desc(variance.standardized)) |>
+      head(n_label) |>
+      rownames()
+    
+    scCustomize::VariableFeaturePlot_scCustom(
+      seurat_object = merged,
+      num_features  = n_label,
+      repel         = TRUE
+    )
+  }
+}
+
 # ── Generic dimensionality reduction plot ─────────────────────────────────────
 
 #' Plot cells in a dimensionality reduction coloured by metadata or gene expression
@@ -242,22 +310,51 @@ sc_plot_cluster_composition <- function(
 
 # ── Marker plots ───────────────────────────────────────────────────────────────
 
-#' DotPlot of known markers across clusters
+#' DotPlot of markers across clusters
 #'
-#' @param merged        Seurat object.
-#' @param markers_list  Named list of character vectors.
-#' @param cfg           Config list from [sc_config()].
+#' Can display either known canonical markers (from `params.yml`) or
+#' differential markers computed by [sc_find_markers()].
+#'
+#' @param merged       Seurat object.
+#' @param cfg          Config list from [sc_config()].
+#' @param markers_list Named list of character vectors (known markers).
+#'   If provided, `markers_df` is ignored.
+#' @param markers_df   Output of [sc_find_markers()]. Used when
+#'   `markers_list` is `NULL`.
+#' @param n_top        Number of top markers per cluster to display
+#'   when using `markers_df`.
 #' @return A plot object.
 #' @export
-sc_plot_markers_dot <- function(merged, markers_list, cfg) {
-  col           <- paste0("clusters_res",
-                           cfg$clustering$default_resolution %||% 0.6)
-  genes_present <- unique(unlist(markers_list))
-  genes_present <- genes_present[genes_present %in% rownames(merged)]
-
+sc_plot_markers_dot <- function(merged, cfg, markers_list = NULL,
+                                markers_df = NULL, n_top = 5L) {
+  
+  col <- paste0("clusters_res", cfg$clustering$default_resolution %||% 0.6)
+  
+  if (!is.null(markers_list)) {
+    # Known canonical markers from params.yml
+    genes <- unique(unlist(markers_list))
+    
+  } else if (!is.null(markers_df) && nrow(markers_df) > 0L &&
+             "cluster" %in% colnames(markers_df)) {
+    # Computed differential markers
+    genes <- markers_df |>
+      dplyr::group_by(cluster) |>
+      dplyr::slice_max(order_by = avg_log2FC, n = n_top, with_ties = FALSE) |>
+      dplyr::pull(gene) |>
+      unique()
+    
+  } else {
+    cli::cli_alert_warning(
+      "Provide either markers_list or markers_df to sc_plot_markers_dot()"
+    )
+    return(NULL)
+  }
+  
+  genes <- genes[genes %in% rownames(merged)]
+  
   scCustomize::Clustered_DotPlot(
     seurat_object = merged,
-    features      = genes_present,
+    features      = genes,
     group.by      = col,
     plot_km_elbow = FALSE
   )
@@ -274,50 +371,38 @@ sc_plot_markers_dot <- function(merged, markers_list, cfg) {
 #' @return A ggplot object, or `NULL` if no markers available.
 #' @export
 sc_plot_markers_heatmap <- function(merged, markers_df, n_top = 5L) {
-
-  if (is.null(markers_df) || nrow(markers_df) == 0L ||
+  
+   if (is.null(markers_df) || nrow(markers_df) == 0L ||
       !"cluster" %in% colnames(markers_df)) {
     cli::cli_alert_warning("No markers to plot")
     return(NULL)
   }
-
+  
   top <- markers_df |>
     dplyr::group_by(cluster) |>
     dplyr::slice_max(order_by = avg_log2FC, n = n_top, with_ties = FALSE) |>
     dplyr::pull(gene) |>
     unique()
-
-  assay <- Seurat::DefaultAssay(merged)
-
-  # For SCT: restrict to genes in scale.data to avoid DoHeatmap warning
-  if (assay == "SCT") {
-    scaled_genes <- rownames(merged[["SCT"]]@scale.data)
-    top_avail    <- top[top %in% scaled_genes]
-    n_missing    <- length(top) - length(top_avail)
-    if (n_missing > 0)
-      cli::cli_alert_info(
-        "{n_missing} markers not in SCT scale.data — omitted from heatmap"
-      )
-    top <- top_avail
+  
+  
+  prev_assay <- Seurat::DefaultAssay(merged)
+  Seurat::DefaultAssay(merged) <- "RNA"
+  
+  if (prev_assay == "SCT") {
+    cli::cli_alert_info(
+      "SCT detected — heatmap rendered on RNA assay (all markers available)"
+    )
   }
-
-  if (length(top) == 0L) {
-    cli::cli_alert_warning("No markers remain after scale.data filtering")
-    return(NULL)
-  }
-
+  
   cells_use <- scCustomize::Random_Cells_Downsample(
     seurat_object = merged, num_cells = 200, allow_lower = TRUE
   )
-
-  Seurat::DoHeatmap(merged,
-                    features  = top,
-                    cells     = cells_use,
-                    slot      = "scale.data",
-                    size      = 3L,
-                    angle     = 90) +
-    ggplot2::theme(axis.text.y = ggplot2::element_text(size = 6)) +
-    ggplot2::labs(title = paste0("Top ", n_top, " markers per cluster"))
+  
+  p <- Seurat::DoHeatmap(merged, features = top, cells = cells_use,
+                         slot = "scale.data", size = 3L, angle = 90)
+  
+  Seurat::DefaultAssay(merged) <- prev_assay
+  p
 }
 
 #' Clustree plot for resolution stability

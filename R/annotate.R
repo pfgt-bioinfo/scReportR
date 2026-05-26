@@ -125,10 +125,10 @@ sc_panhuman_azimuth <- function(merged, cfg, force = FALSE) {
                  # Ensure log-normalised RNA data is available
                  if (prev_assay == "SCT") {
                    cli::cli_alert_info(
-                     "SCT detected — running NormalizeData on RNA for Azimuth"
+                     "SCT detected — selecting NormalizeData on RNA for Azimuth"
                    )
                    Seurat::DefaultAssay(merged) <- "RNA"
-                   merged <- Seurat::NormalizeData(merged, verbose = FALSE)
+                 #  merged <- Seurat::NormalizeData(merged, verbose = FALSE)
                  }
 
                  merged <- AzimuthAPI::CloudAzimuth(merged)

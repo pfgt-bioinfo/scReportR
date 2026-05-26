@@ -2,20 +2,34 @@
 % Please edit documentation in R/cluster_plots.R
 \name{sc_plot_markers_dot}
 \alias{sc_plot_markers_dot}
-\title{DotPlot of known markers across clusters}
+\title{DotPlot of markers across clusters}
 \usage{
-sc_plot_markers_dot(merged, markers_list, cfg)
+sc_plot_markers_dot(
+  merged,
+  cfg,
+  markers_list = NULL,
+  markers_df = NULL,
+  n_top = 5L
+)
 }
 \arguments{
 \item{merged}{Seurat object.}
 
-\item{markers_list}{Named list of character vectors.}
-
 \item{cfg}{Config list from \code{\link[=sc_config]{sc_config()}}.}
+
+\item{markers_list}{Named list of character vectors (known markers).
+If provided, \code{markers_df} is ignored.}
+
+\item{markers_df}{Output of \code{\link[=sc_find_markers]{sc_find_markers()}}. Used when
+\code{markers_list} is \code{NULL}.}
+
+\item{n_top}{Number of top markers per cluster to display
+when using \code{markers_df}.}
 }
 \value{
 A plot object.
 }
 \description{
-DotPlot of known markers across clusters
+Can display either known canonical markers (from \code{params.yml}) or
+differential markers computed by \code{\link[=sc_find_markers]{sc_find_markers()}}.
 }

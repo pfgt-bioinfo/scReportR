@@ -19,31 +19,47 @@
 #' @return Normalised Seurat object with PCA reduction.
 #' @export
 sc_normalize <- function(merged, cfg, force = FALSE) {
-
+  
   sc_cache_run("03a_normalized.qs2",
                cache_dir = sc_cache_dir(cfg),
                force     = force,
                expr = {
                  p      <- cfg$normalization
                  method <- p$method %||% "SCTransform"
-
+                 n_pcs  <- p$n_pcs  %||% 50L
+                 
                  # Use decontX assay if requested and available
-                 use_decontX <- isTRUE(cfg$decontX$use_decontX_counts) &&
-                                "decontX" %in% names(merged@assays)
-                 if (use_decontX) {
-                   cli::cli_alert_info(
-                     "Using decontX counts for normalisation"
-                   )
-                   Seurat::DefaultAssay(merged) <- "decontX"
-                   source_assay <- "decontX"
-                 } else {
-                   Seurat::DefaultAssay(merged) <- "RNA"
-                   source_assay <- "RNA"
-                 }
-
-                 cli::cli_h1("Normalisation: {method} (assay = {source_assay})")
-
+                 use_decontX  <- isTRUE(cfg$decontX$use_decontX_counts) &&
+                   "decontX" %in% names(merged@assays)
+                 source_assay <- if (use_decontX) "decontX" else "RNA"
+                 
+                 if (use_decontX)
+                   cli::cli_alert_info("Using decontX counts for normalisation")
+                 
+                 # ── Step 1 : LogNormalize on RNA (always) ──────────────────
+                 # Required for DoHeatmap, SingleR, and FeaturePlot on RNA
+                 cli::cli_h1("LogNormalize RNA assay")
+                 merged <- Seurat::NormalizeData(merged, assay = "RNA",
+                                                 verbose = FALSE)
+                 merged <- Seurat::FindVariableFeatures(
+                   merged,
+                   assay     = "RNA",
+                   nfeatures = p$n_variable_features %||% 3000L,
+                   verbose   = FALSE
+                 )
+                 all.genes <- rownames(merged)
+                 merged <- Seurat::ScaleData(
+                   merged,
+                   assay           = "RNA",
+                   features        = all.genes,
+                   vars.to.regress = unlist(p$vars_to_regress),
+                   verbose         = FALSE
+                 )
+                 cli::cli_alert_success("RNA normalised and scaled")
+                 
+                 # ── Step 2 : SCTransform (optional) ───────────────────────
                  if (method == "SCTransform") {
+                   cli::cli_h1("SCTransform (assay = {source_assay})")
                    merged <- Seurat::SCTransform(
                      merged,
                      assay               = source_assay,
@@ -53,36 +69,16 @@ sc_normalize <- function(merged, cfg, force = FALSE) {
                      verbose             = FALSE
                    )
                    assay_pca <- "SCT"
-
-                 } else if (method == "LogNormalize") {
-                   merged <- Seurat::NormalizeData(merged,
-                                                   assay   = source_assay,
-                                                   verbose = FALSE)
-                   merged <- Seurat::FindVariableFeatures(
-                     merged,
-                     assay     = source_assay,
-                     nfeatures = p$n_variable_features %||% 3000L,
-                     verbose   = FALSE
-                   )
-                   merged <- Seurat::ScaleData(
-                     merged,
-                     assay           = source_assay,
-                     vars.to.regress = unlist(p$vars_to_regress),
-                     verbose         = FALSE
-                   )
-                   assay_pca <- source_assay
-
+                   
                  } else {
-                   cli::cli_abort("Unknown normalisation method: {method}")
+                   assay_pca <- "RNA"
                  }
-
-                 n_pcs <- p$n_pcs %||% 50L
+                 
+                 # ── Step 3 : PCA ───────────────────────────────────────────
                  cli::cli_alert_info("PCA: {n_pcs} PCs on {assay_pca}")
-
-                 merged <- Seurat::RunPCA(
-                   merged, assay = assay_pca, npcs = n_pcs, verbose = FALSE
-                 )
-
+                 merged <- Seurat::RunPCA(merged, assay = assay_pca,
+                                          npcs = n_pcs, verbose = FALSE)
+                 
                  cli::cli_alert_success("Normalisation + PCA done")
                  merged
                })

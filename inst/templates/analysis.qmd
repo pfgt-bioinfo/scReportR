@@ -4,7 +4,7 @@ subtitle: "{{PROJECT_NAME}}"
 author: "{{AUTHOR}}"
 date: today
 date-format: "DD MMMM YYYY"
-ormat:
+format:
   html:
     toc: true
     toc-depth: 3
@@ -311,9 +311,8 @@ merged <- sc_normalize(merged, cfg)
 ## Highly variable genes
 
 ```{r hvg, fig.height=5}
-scCustomize::VariableFeaturePlot_scCustom(
-  seurat_object = merged, num_features = 20, repel = TRUE
-)
+sc_plot_hvg(merged, n_label = 20)
+
 ```
 
 ::: callout-note
@@ -464,7 +463,24 @@ define each cluster (**top markers**). These are used to:
 ## Top markers per cluster
 
 ```{r find-markers}
-markers_df <- sc_find_markers(merged, cfg)
+# Remove unannotated genes and other elements to facilitate annotation
+markers_df <- sc_find_markers(merged, cfg) |>
+  dplyr::filter(
+    !grepl("^ENSG|^LINC|^AC[0-9]|^AL[0-9]", gene),
+    pct.1 >= 0.2    # au moins 20% des cellules expriment le gène
+  )
+```
+
+
+```{r heatmap-callout, results='asis'}
+if ("SCT" %in% names(merged@assays)) {
+  cat("::: callout-note\n")
+  cat("The heatmap uses scaled RNA counts (`RNA` assay), not SCT residuals.\n")
+  cat("This ensures all marker genes can be displayed regardless of whether\n")
+  cat("they are in SCT `scale.data`. Gene ordering and colour scale reflect\n")
+  cat("log-normalised, z-scored expression.\n")
+  cat(":::\n")
+}
 ```
 
 ```{r markers-heatmap, fig.height=12}
@@ -520,7 +536,7 @@ cat("\n:::\n")
 ## DotPlot — global view
 
 ```{r dotplot, fig.height=8, fig.width=16}
-sc_plot_markers_dot(merged, cfg$markers, cfg)
+sc_plot_markers_dot(merged, cfg, markers_df = markers_df, n_top = 5)
 ```
 
 ::: callout-note
