@@ -15,7 +15,13 @@
 #' @export
 sc_plot_hvg <- function(merged, n_label = 20L) {
   
-  method <- if ("SCT" %in% names(merged@assays)) "SCT" else "LogNormalize"
+  default_assay <- Seurat::DefaultAssay(merged)
+  
+  method <- dplyr::case_when(
+    "SCT"     %in% names(merged@assays) ~ "SCT",
+    default_assay == "decontX"          ~ "decontX",
+    TRUE                                ~ "LogNormalize"
+  )
   
   if (method == "SCT") {
     hvg      <- Seurat::VariableFeatures(merged)
@@ -54,7 +60,7 @@ sc_plot_hvg <- function(merged, n_label = 20L) {
     
   } else {
     # LogNormalize — use scCustomize
-    meta  <- Seurat::HVFInfo(merged, assay = "RNA")
+    meta  <- Seurat::HVFInfo(merged, assay = default_assay)
     hvg   <- Seurat::VariableFeatures(merged)  # non triés en v5
     
     # Trier explicitement par variance standardisée décroissante
@@ -372,7 +378,7 @@ sc_plot_markers_dot <- function(merged, cfg, markers_list = NULL,
 #' @export
 sc_plot_markers_heatmap <- function(merged, markers_df, n_top = 5L) {
   
-   if (is.null(markers_df) || nrow(markers_df) == 0L ||
+  if (is.null(markers_df) || nrow(markers_df) == 0L ||
       !"cluster" %in% colnames(markers_df)) {
     cli::cli_alert_warning("No markers to plot")
     return(NULL)
@@ -384,14 +390,30 @@ sc_plot_markers_heatmap <- function(merged, markers_df, n_top = 5L) {
     dplyr::pull(gene) |>
     unique()
   
+  # Use the assay that has scale.data available
+  # Priority: RNA (always scaled) > decontX > SCT
+  assay_use <- dplyr::case_when(
+    "scale.data" %in% SeuratObject::Layers(merged[["RNA"]])    ~ "RNA",
+    "decontX" %in% names(merged@assays) &&
+      "scale.data" %in% SeuratObject::Layers(merged[["decontX"]]) ~ "decontX",
+    TRUE ~ "RNA"
+  )
   
+  cli::cli_alert_info("Heatmap using assay: {assay_use}")
   prev_assay <- Seurat::DefaultAssay(merged)
-  Seurat::DefaultAssay(merged) <- "RNA"
+  Seurat::DefaultAssay(merged) <- assay_use
   
-  if (prev_assay == "SCT") {
-    cli::cli_alert_info(
-      "SCT detected — heatmap rendered on RNA assay (all markers available)"
-    )
+  # Filter to genes present in scale.data
+  scaled_genes <- rownames(merged[[assay_use]]@scale.data)
+  missing      <- top[!top %in% scaled_genes]
+  if (length(missing) > 0L)
+    cli::cli_alert_info("{length(missing)} markers not in scale.data — omitted")
+  top <- top[top %in% scaled_genes]
+  
+  if (length(top) == 0L) {
+    cli::cli_alert_warning("No markers remain after scale.data filtering")
+    Seurat::DefaultAssay(merged) <- prev_assay
+    return(NULL)
   }
   
   cells_use <- scCustomize::Random_Cells_Downsample(
@@ -399,7 +421,9 @@ sc_plot_markers_heatmap <- function(merged, markers_df, n_top = 5L) {
   )
   
   p <- Seurat::DoHeatmap(merged, features = top, cells = cells_use,
-                         slot = "scale.data", size = 3L, angle = 90)
+                         slot = "scale.data", size = 3L, angle = 90) +
+    ggplot2::theme(axis.text.y = ggplot2::element_text(size = 6)) +
+    ggplot2::labs(title = paste0("Top ", n_top, " markers per cluster"))
   
   Seurat::DefaultAssay(merged) <- prev_assay
   p
