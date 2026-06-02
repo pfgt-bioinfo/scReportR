@@ -392,11 +392,11 @@ sc_plot_markers_heatmap <- function(merged, markers_df, n_top = 5L) {
   
   # Use the assay that has scale.data available
   # Priority: RNA (always scaled) > decontX > SCT
-  assay_use <- dplyr::case_when(
-    "scale.data" %in% SeuratObject::Layers(merged[["RNA"]])    ~ "RNA",
+  assay_use    <- dplyr::case_when(
+    .has_scale_data(merged, "RNA")                                    ~ "RNA",
     "decontX" %in% names(merged@assays) &&
-      "scale.data" %in% SeuratObject::Layers(merged[["decontX"]]) ~ "decontX",
-    TRUE ~ "RNA"
+      .has_scale_data(merged, "decontX")                             ~ "decontX",
+    TRUE                                                              ~ "RNA"
   )
   
   cli::cli_alert_info("Heatmap using assay: {assay_use}")
@@ -404,7 +404,8 @@ sc_plot_markers_heatmap <- function(merged, markers_df, n_top = 5L) {
   Seurat::DefaultAssay(merged) <- assay_use
   
   # Filter to genes present in scale.data
-  scaled_genes <- rownames(merged[[assay_use]]@scale.data)
+  #scaled_genes <- rownames(merged[[assay_use]]@scale.data)
+  scaled_genes <- .get_scaled_genes(merged, assay_use)
   missing      <- top[!top %in% scaled_genes]
   if (length(missing) > 0L)
     cli::cli_alert_info("{length(missing)} markers not in scale.data — omitted")
@@ -471,4 +472,29 @@ sc_plot_module_scores <- function(merged, cfg) {
   sc_plot_dim_cols(merged, cols = score_cols) |>
     stats::setNames(gsub("score_cluster_", "Cluster ", score_cols)) |>
     sc_tabset()
+}
+
+# ── Internal helpers ──────────────────────────────────────────────────────────
+
+#' @keywords internal
+.has_scale_data <- function(merged, assay_name) {
+  tryCatch({
+    assay_obj <- merged[[assay_name]]
+    if (inherits(assay_obj, "Assay5")) {
+      "scale.data" %in% SeuratObject::Layers(assay_obj)
+    } else {
+      nrow(assay_obj@scale.data) > 0
+    }
+  }, error = function(e) FALSE)
+}
+
+#' @keywords internal
+.get_scaled_genes <- function(merged, assay_name) {
+  assay_obj <- merged[[assay_name]]
+  if (inherits(assay_obj, "Assay5")) {
+    rownames(Seurat::GetAssayData(merged, assay = assay_name,
+                                  layer = "scale.data"))
+  } else {
+    rownames(assay_obj@scale.data)
+  }
 }

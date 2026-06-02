@@ -254,7 +254,7 @@ sc_merge <- function(obj_list, cfg, force = FALSE) {
     shared <- intersect(rownames(decontX_counts), rownames(obj))
     full_counts[shared, ] <- decontX_counts[shared, ]
 
-    obj[["decontX"]] <- Seurat::CreateAssayObject(
+    obj[["decontX"]] <- SeuratObject::CreateAssay5Object(
       counts = round(full_counts)
     )
     cli::cli_alert_info("  decontX counts stored as 'decontX' assay")
