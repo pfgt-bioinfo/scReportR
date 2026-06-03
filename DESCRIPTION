@@ -48,4 +48,5 @@ Suggests:
     ggalluvial,
     quarto,
     knitr,
-    rmarkdown
+    rmarkdown,
+    sessioninfo
