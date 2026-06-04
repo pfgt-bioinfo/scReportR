@@ -110,24 +110,22 @@ sc_plot_qc_distri <- function(obj_list, cfg) {
 #' @return A patchwork ggplot.
 #' @export
 sc_plot_qc_violins <- function(obj_list, thresholds_list, cfg,
-                                fill_by = NULL) {
-
+                               fill_by = NULL) {
+  
   sample_levels <- names(obj_list)
   meta_all <- dplyr::bind_rows(
     lapply(obj_list, function(o) as.data.frame(o@meta.data))
   ) |>
     dplyr::mutate(sample_id = factor(sample_id, levels = sample_levels))
-
-  # Auto-detect fill column if not provided
-  fill_col <- fill_by %||% .best_meta_col(meta_all)
+  
+  fill_col    <- fill_by %||% .best_meta_col(meta_all)
   if (is.null(fill_col)) {
     meta_all$.fill_dummy <- "all"
     fill_col <- ".fill_dummy"
   }
-
   fill_colors <- .resolve_palette(fill_col, cfg)
-
-  # Per-sample threshold segments (x position = integer factor level)
+  
+  # Threshold segments df
   thr_df <- dplyr::bind_rows(lapply(seq_along(sample_levels), function(i) {
     thr <- thresholds_list[[sample_levels[i]]]
     tibble::tibble(
@@ -141,7 +139,7 @@ sc_plot_qc_violins <- function(obj_list, thresholds_list, cfg,
       max_rb       = thr$max_rb_percent
     )
   }))
-
+  
   .make_panel <- function(yvar, ylab, thr_cols) {
     p <- ggplot2::ggplot(
       meta_all,
@@ -157,32 +155,60 @@ sc_plot_qc_violins <- function(obj_list, thresholds_list, cfg,
         legend.position = "none",
         plot.title      = ggplot2::element_text(size = 9, face = "bold")
       )
-
+    
     if (!is.null(fill_colors))
       p <- p + ggplot2::scale_fill_manual(values = fill_colors)
-
+    
     for (col in thr_cols) {
-      seg <- thr_df |> dplyr::select(x_num, y = dplyr::all_of(col))
-      p <- p + ggplot2::geom_segment(
-        data        = seg,
-        ggplot2::aes(x = x_num - 0.38, xend = x_num + 0.38, y = y, yend = y),
-        color       = "red", linetype = "dashed", linewidth = 0.55,
-        inherit.aes = FALSE
-      )
+      if (col %in% colnames(thr_df)) {
+        seg <- thr_df |> dplyr::select(x_num, y = dplyr::all_of(col))
+        p <- p + ggplot2::geom_segment(
+          data        = seg,
+          ggplot2::aes(x = x_num - 0.38, xend = x_num + 0.38,
+                       y = y, yend = y),
+          color       = "red", linetype = "dashed", linewidth = 0.55,
+          inherit.aes = FALSE
+        )
+      }
     }
     p
   }
-
-  p1 <- .make_panel("nFeature_RNA", "Genes / cell",    c("min_features", "max_features"))
-  p2 <- .make_panel("nCount_RNA",   "UMI / cell",      c("min_counts",   "max_counts"))
-  p3 <- .make_panel("percent.mt",   "% Mitochondrial", "max_mt")
-  p4 <- .make_panel("percent.rb",   "% Ribosomal",     "max_rb")
-
-  (p1 + p2 + p3 + p4) +
+  
+  # Helper: check if a metric is present and has meaningful values
+  # (not all NA, not all zero — e.g. Flex has no ribosomal genes)
+  .has_signal <- function(col) {
+    col %in% colnames(meta_all) &&
+      !all(is.na(meta_all[[col]])) &&
+      !all(meta_all[[col]] == 0, na.rm = TRUE)
+  }
+  
+  # Build panels dynamically based on available metrics
+  panels <- list()
+  panels[["genes"]] <- .make_panel("nFeature_RNA", "Genes / cell",
+                                   c("min_features", "max_features"))
+  panels[["umi"]]   <- .make_panel("nCount_RNA", "UMI / cell",
+                                   c("min_counts", "max_counts"))
+  
+  if (.has_signal("percent.mt")) {
+    panels[["mt"]] <- .make_panel("percent.mt", "% Mitochondrial", "max_mt")
+  } else {
+    cli::cli_alert_info("percent.mt is all zero or absent — skipping (Flex data?)")
+  }
+  
+  if (.has_signal("percent.rb")) {
+    panels[["rb"]] <- .make_panel("percent.rb", "% Ribosomal", "max_rb")
+  } else {
+    cli::cli_alert_info("percent.rb is all zero or absent — skipping (Flex data?)")
+  }
+  
+  if (.has_signal("percent.hemo")) {
+    panels[["hemo"]] <- .make_panel("percent.hemo", "% Haemoglobin", c())
+  }
+  
+  patchwork::wrap_plots(panels, ncol = min(4L, length(panels))) +
     patchwork::plot_layout(guides = "collect") &
     ggplot2::theme(legend.position = "bottom")
 }
-
 #' Scatter plots: UMI vs genes, UMI vs MT%, and cell complexity
 #'
 #' Uses [scCustomize::QC_Plot_UMIvsGene()] for the main panel and adds

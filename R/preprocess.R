@@ -139,14 +139,27 @@ sc_filter <- function(obj_list, thresholds_list, remove_doublets = TRUE) {
     n0  <- ncol(obj)
 
     keep <- obj$nFeature_RNA >= thr$min_features &
-            obj$nFeature_RNA <= thr$max_features &
-            obj$nCount_RNA   >= thr$min_counts   &
-            obj$nCount_RNA   <= thr$max_counts   &
-            obj$percent.mt   <= thr$max_mt_percent &
-            obj$percent.rb   <= thr$max_rb_percent &
-            obj$log10_genes_per_umi >= thr$min_log10_genes_per_umi &
-            (is.na(obj$decontX_contamination) |
-               obj$decontX_contamination <= (thr$max_conta %||% 0.75))
+      obj$nFeature_RNA <= thr$max_features &
+      obj$nCount_RNA   >= thr$min_counts   &
+      obj$nCount_RNA   <= thr$max_counts   &
+      obj$log10_genes_per_umi >= thr$min_log10_genes_per_umi &
+      (is.na(obj$decontX_contamination) |
+         obj$decontX_contamination <= (thr$max_conta %||% 0.75))
+    
+    # Apply MT filter only if column exists and has signal
+    if ("percent.mt" %in% colnames(obj@meta.data) &&
+        !all(is.na(obj$percent.mt)) &&
+        !all(obj$percent.mt == 0, na.rm = TRUE)) {
+      keep <- keep & obj$percent.mt <= thr$max_mt_percent
+    }
+    
+    # Apply RB filter only if column exists and has signal
+    if ("percent.rb" %in% colnames(obj@meta.data) &&
+        !all(is.na(obj$percent.rb)) &&
+        !all(obj$percent.rb == 0, na.rm = TRUE)) {
+      keep <- keep & obj$percent.rb <= thr$max_rb_percent
+    }
+    
 
     if (remove_doublets) keep <- keep & obj$scDblFinder_class == "singlet"
 
