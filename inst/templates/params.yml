@@ -63,6 +63,8 @@ normalization:
   n_variable_features: 3000
   n_pcs: 50
   pcs_use: 30
+  scale_all_genes: true    # true = all genes (needed for DoHeatmap)
+                           # false = HVG only (faster, use when regressing cell cycle)
 
 # =============================================================================
 # INTEGRATION

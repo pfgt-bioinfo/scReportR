@@ -48,11 +48,23 @@ sc_normalize <- function(merged, cfg, force = FALSE) {
                    nfeatures = p$n_variable_features %||% 3000L,
                    verbose   = FALSE
                  )
-                 all_genes <- rownames(merged)
+                 # Scale genes
+                 scale_features <- if (isTRUE(p$scale_all_genes %||% TRUE)) {
+                   rownames(merged)
+                 } else {
+                   Seurat::VariableFeatures(merged, assay = source_assay)
+                 }
+                 
+                 if (!isTRUE(p$scale_all_genes %||% TRUE)) {
+                   cli::cli_alert_info(
+                     "Scaling HVG only ({length(scale_features)} genes) — faster but DoHeatmap may miss some markers"
+                   )
+                 }
+                 
                  merged <- Seurat::ScaleData(
                    merged,
                    assay           = source_assay,
-                   features        = all_genes,
+                   features        = scale_features,
                    vars.to.regress = unlist(p$vars_to_regress),
                    verbose         = FALSE
                  )

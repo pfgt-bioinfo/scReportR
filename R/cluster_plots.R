@@ -116,7 +116,7 @@ sc_plot_dim_cols <- function(merged, cols, reduction = "umap",
         features      = col,
         reduction     = reduction,
         pt.size       = pt_size,
-        raster        = TRUE
+        raster        = FALSE
       )
     } else {
       colors <- .resolve_palette(col, cfg)
@@ -127,7 +127,7 @@ sc_plot_dim_cols <- function(merged, cols, reduction = "umap",
         label         = TRUE,
         label.size    = 3,
         repel         = TRUE,
-        raster        = TRUE,
+        raster        = FALSE,
         pt.size       = pt_size,
         colors_use    = colors,
         figure_plot   = TRUE
@@ -142,7 +142,7 @@ sc_plot_dim_cols <- function(merged, cols, reduction = "umap",
       features      = col,
       reduction     = reduction,
       pt.size       = pt_size,
-      raster        = TRUE
+      raster        = FALSE
     )
   }) |> stats::setNames(gene_cols)
 
@@ -208,7 +208,7 @@ sc_tabset_resolutions <- function(merged, resolutions) {
       label         = TRUE,
       label.size    = 3,
       repel         = TRUE,
-      raster        = TRUE,
+      raster        = FALSE,
       pt.size       = 0.3,
       figure_plot   = TRUE
     ) +
