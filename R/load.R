@@ -57,20 +57,32 @@ sc_load <- function(cfg, force = FALSE) {
     min.features = 10L
   )
   
-  obj$sample_id    <- sample_info$name
-  obj$library_type <- sample_info$library_type
-  obj$tissue       <- sample_info$tissue    %||% NA_character_
-  obj$population   <- sample_info$population %||% NA_character_
-  obj$species      <- sample_info$species   %||% "human"
+  obj$sample_id <- sample_info$name
+  
+  # Everything else in the row is carried over as-is: the core descriptive
+  # fields (library_type, species) plus whatever this project declared under
+  # metadata: in params.yml. name and the paths are not metadata.
+  fields <- setdiff(names(sample_info), c("name", "path", "raw_path"))
+  
+  clash <- intersect(fields, c("orig.ident", "nCount_RNA", "nFeature_RNA",
+                               "sample_id", "seurat_clusters"))
+  if (length(clash)) {
+    cli::cli_abort(c(
+      "Field name{?s} reserved by Seurat: {.field {clash}}.",
+      "i" = "Rename {?it/them} in {.file params.yml}."
+    ))
+  }
+  
+  for (f in fields) obj[[f]] <- sample_info[[f]]
   
   obj <- scCustomize::Add_Cell_QC_Metrics(
     obj,
-    species            = sample_info$species %||% "human",
-    mito_name          = "percent.mt",
-    ribo_name          = "percent.rb",
-    mito_ribo_name     = "percent_mito_ribo",
-    complexity_name    = "log10_genes_per_umi",
-    hemo_name          = "percent.hemo"
+    species         = sample_info$species %||% "human",
+    mito_name       = "percent.mt",
+    ribo_name       = "percent.rb",
+    mito_ribo_name  = "percent_mito_ribo",
+    complexity_name = "log10_genes_per_umi",
+    hemo_name       = "percent.hemo"
   )
   
   obj

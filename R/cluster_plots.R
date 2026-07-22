@@ -103,24 +103,28 @@ sc_plot_dim_cols <- function(merged, cols, reduction = "umap",
 
   if (length(missing) > 0)
     cli::cli_alert_warning(
-      "Not found in metadata or features: {paste(missing, collapse = ', ')}"
+      # "Not found in metadata or features: {paste(missing, collapse = ', ')}"
+      "Not found in metadata or features: {.val {missing}}"
     )
 
   # Metadata plots
   meta_plots <- lapply(meta_cols, function(col) {
+    lab <- cfg$.labels[[col]] %||% col
     is_continuous <- is.numeric(merged@meta.data[[col]])
-
+    
     if (is_continuous) {
       scCustomize::FeaturePlot_scCustom(
         seurat_object = merged,
         features      = col,
         reduction     = reduction,
         pt.size       = pt_size,
-        raster        = FALSE
-      )
+        raster        = FALSE,
+        na_cutoff     = NULL
+      ) +
+        ggplot2::labs(title = lab)
+      
     } else {
-      colors <- .resolve_palette(col, cfg)
-      scCustomize::DimPlot_scCustom(
+      p <- scCustomize::DimPlot_scCustom(
         seurat_object = merged,
         reduction     = reduction,
         group.by      = col,
@@ -129,9 +133,18 @@ sc_plot_dim_cols <- function(merged, cols, reduction = "umap",
         repel         = TRUE,
         raster        = FALSE,
         pt.size       = pt_size,
-        colors_use    = colors,
+        colors_use    = .resolve_palette(col, cfg),
         figure_plot   = TRUE
       )
+      
+      # figure_plot = TRUE returns a patchwork: `+` would land on the arrows.
+      (p & ggplot2::labs(title = NULL)) +
+        patchwork::plot_annotation(
+          title = lab,
+          theme = ggplot2::theme(
+            plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14)
+          )
+        )
     }
   }) |> stats::setNames(meta_cols)
 
@@ -142,11 +155,17 @@ sc_plot_dim_cols <- function(merged, cols, reduction = "umap",
       features      = col,
       reduction     = reduction,
       pt.size       = pt_size,
-      raster        = FALSE
+      raster        = FALSE, 
+      figure_plot   = TRUE
     )
   }) |> stats::setNames(gene_cols)
 
-  c(meta_plots, gene_plots)
+  # c(meta_plots, gene_plots)
+  
+  out <- c(meta_plots, gene_plots)
+  out <- out[intersect(cols, names(out))]   # rétablit l'ordre demandé
+  attr(out, "missing") <- missing           # <- doit rester APRÈS le `[`
+  out
 }
 
 #' Plot UMAP coloured by metadata or gene expression
@@ -197,12 +216,12 @@ sc_tabset <- function(plot_list, print_fn = print) {
 sc_tabset_resolutions <- function(merged, resolutions) {
   cols <- paste0("clusters_res", resolutions)
   cols <- cols[cols %in% colnames(merged@meta.data)]
-
+  
   plots <- lapply(cols, function(col) {
     n   <- length(unique(merged@meta.data[[col]]))
     res <- gsub("clusters_res", "", col)
-
-    scCustomize::DimPlot_scCustom(
+    
+    p <- scCustomize::DimPlot_scCustom(
       seurat_object = merged,
       group.by      = col,
       label         = TRUE,
@@ -211,9 +230,18 @@ sc_tabset_resolutions <- function(merged, resolutions) {
       raster        = FALSE,
       pt.size       = 0.3,
       figure_plot   = TRUE
-    ) +
-      ggplot2::ggtitle(paste0("Res = ", res, " (", n, " clusters)")) +
-      ggplot2::theme(legend.position = "none")
+    )
+    
+    (p &
+        ggplot2::labs(title = NULL)) +
+      patchwork::plot_annotation(
+        title    = col,
+        subtitle = paste0(n, " cluster", if (n > 1) "s"),
+        theme = ggplot2::theme(
+          plot.title    = ggplot2::element_text(hjust = 0.5, face = "bold", size = 14),
+          plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 10, colour = "grey50")
+        )
+      )
   }) |> stats::setNames(paste0("Res ", resolutions))
 
   sc_tabset(plots)

@@ -45,6 +45,7 @@ sc_cluster <- function(merged, cfg, force = FALSE) {
                      merged,
                      resolution   = res,
                      algorithm    = clust$algorithm %||% 4L,
+                     random.seed = 1, 
                      cluster.name = col,
                      verbose      = FALSE
                    )
