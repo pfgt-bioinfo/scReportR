@@ -19,6 +19,7 @@ cache/
 output/
 
 # OS
+._*
 .DS_Store
 Thumbs.db
 
