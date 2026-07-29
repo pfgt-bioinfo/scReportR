@@ -44,7 +44,7 @@ knitr:
 options(future.globals.maxSize = 2 * 1024^3)
 
 # load Roxane single-cell RNAseq functions
-source("/home/ardin/bubbles/senedit_flex/code/repos/scRNAseq-functions/pfgt-scRNAseq.R")
+source(normalizePath(here::here("..", "code", "repos", "scRNAseq-functions", "pfgt-scRNAseq.R")))
 
 library(scReportR)
 library(patchwork)
@@ -419,13 +419,25 @@ merged <- sc_cluster(merged, cfg)
 ## Cluster stability (clustree)
 
 ```{r clustree-rox, out.width='90%'}
-pfgt_plot_Clustree(
-  seurat_obj = merged,
-  colours    = c("#006694", "#6c9929", "#991e4e"),
-  reduction  = "clusters_res",
-  subtitle   = paste0("Leiden algorithm — ", cfg$normalization$method, " normalization"),
-  highlight_res = cfg$clustering$default_resolution
-)
+# Setup — après le source() des helpers
+plot_clustree <- if (exists("pfgt_plot_Clustree", mode = "function")) {
+  pfgt_plot_Clustree(
+    seurat_obj = merged,
+    colours    = c("#006694", "#6c9929", "#991e4e"),
+    reduction  = "clusters_res",
+    subtitle   = paste0("Leiden algorithm — ", cfg$normalization$method, " normalization"),
+    highlight_res = cfg$clustering$default_resolution
+  )
+} else if (exists("sc_plot_clustree", mode = "function")) {
+  sc_plot_clustree(merged, cfg$clustering$resolutions)
+} else {
+  cli::cli_abort(c(
+    "No clustree plotting function available.",
+    "i" = "Source the helpers, or check that {.pkg scReportR} is loaded."
+  ))
+}
+
+plot_clustree
 ```
 
 ::: {.callout-tip}
