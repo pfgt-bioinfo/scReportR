@@ -8,8 +8,8 @@
 #' Core sample fields recognised by `sc_config()`
 #'
 #' Fields that every project shares and that the code is allowed to know about
-#' by name. Anything found under a sample's `metadata:` block is treated as a
-#' free-form descriptive field instead: discovered at load time, added to
+#' by name. Any other flat key on a sample is treated as a free-form
+#' descriptive field instead: discovered at load time, added to
 #' `cfg$.sample_meta`, and given an automatic colour palette.
 #'
 #' @noRd
@@ -85,49 +85,36 @@
 
 #' Flatten one `cfg$samples` entry into a data frame
 #'
-#' Core fields and `metadata:` fields are unlisted and recycled to the number of
-#' samples declared in `name`. Fields whose length is neither 1 nor
-#' `length(name)` raise an error naming the offender, rather than being silently
-#' recycled to the wrong length.
+#' Merges the project-level `defaults:` block into the sample (a per-sample
+#' value overrides the default), then flattens all keys. Descriptive fields are
+#' flat, alongside the core fields — anything that isn't core is discovered as
+#' metadata downstream. Fields whose length is neither 1 nor `length(name)`
+#' raise an error naming the offender, rather than being silently recycled.
 #'
-#' @param s One entry of `cfg$samples`, as read from YAML.
+#' @param s        One entry of `cfg$samples`, as read from YAML.
+#' @param defaults The parsed `defaults:` block (list), applied to every sample.
 #'
 #' @return A data frame with one row per element of `s$name`.
 #'
 #' @noRd
-.sc_sample_row <- function(s) {
+.sc_sample_row <- function(s, defaults = list()) {
   
-  # Promote legacy top-level fields into metadata:
-  legacy <- intersect(.SC_LEGACY_FIELDS, names(s))
-  if (length(legacy)) {
-    cli::cli_warn(c(
-      "Top-level {.field {legacy}} found in sample {.val {unlist(s$name)}}.",
-      "i" = "Move these under a {.field metadata:} block; support will be
-             removed in a future version."
-    ))
-    s$metadata <- utils::modifyList(.sc_to_list(s$metadata), s[legacy])
-    s[legacy] <- NULL
-  }
+  # Project-level defaults fill fields the sample omits; a per-sample value
+  # takes precedence (modifyList overwrites `defaults` with `s`).
+  s <- utils::modifyList(defaults, s)
   
-  # Optional core fields get their defaults
+  # Optional core fields still get a hard default if neither sample nor
+  # defaults: supplied them.
   s$raw_path <- s$raw_path %||% NA_character_
   s$species  <- s$species  %||% "human"
   
-  unknown <- setdiff(names(s), c(.SC_CORE_FIELDS, "metadata"))
-  if (length(unknown)) {
-    cli::cli_warn(c(
-      "Unrecognised top-level field{?s} in sample {.val {unlist(s$name)}}:
-       {.field {unknown}}.",
-      "i" = "Descriptive fields belong under {.field metadata:}."
-    ))
+  if (is.null(s$name)) {
+    cli::cli_abort("A sample entry has no {.field name}.")
   }
   
-  flat <- c(s[intersect(.SC_CORE_FIELDS, names(s))], .sc_to_list(s$metadata))
-  flat <- lapply(flat, function(v) unlist(v, use.names = FALSE))
+  flat <- lapply(s, function(v) unlist(v, use.names = FALSE))
   
   n <- length(flat$name)
-  if (n == 0L) cli::cli_abort("A sample entry has an empty {.field name}.")
-  
   bad <- names(flat)[!lengths(flat) %in% c(1L, n)]
   if (length(bad)) {
     cli::cli_abort(c(
@@ -270,7 +257,9 @@ sc_config <- function(params_file = "params.yml") {
   options(Seurat.object.assay.version = "v5")
   
   # ── Sample metadata as data frame ───────────────────────────────────────────
-  cfg$.sample_meta <- dplyr::bind_rows(lapply(cfg$samples, .sc_sample_row))
+  cfg$.sample_meta <- dplyr::bind_rows(
+    lapply(cfg$samples, .sc_sample_row, defaults = .sc_to_list(cfg$defaults))
+  )
   
   if (anyDuplicated(cfg$.sample_meta$name)) {
     dup <- unique(cfg$.sample_meta$name[duplicated(cfg$.sample_meta$name)])

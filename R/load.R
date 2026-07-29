@@ -59,9 +59,9 @@ sc_load <- function(cfg, force = FALSE) {
   
   obj$sample_id <- sample_info$name
   
-  # Everything else in the row is carried over as-is: the core descriptive
-  # fields (library_type, species) plus whatever this project declared under
-  # metadata: in params.yml. name and the paths are not metadata.
+  # Everything else in the row is carried over as-is: the shared defaults
+  # (library_type, species) plus whatever flat descriptive fields this project
+  # declared in params.yml. name and the paths are not carried over.
   fields <- setdiff(names(sample_info), c("name", "path", "raw_path"))
   
   clash <- intersect(fields, c("orig.ident", "nCount_RNA", "nFeature_RNA",

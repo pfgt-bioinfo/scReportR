@@ -58,9 +58,10 @@ init_sc_report <- function(project_name,
     src  = file.path(tmpl_dir, "params.yml"),
     dest = file.path(proj_dir, "params.yml"),
     vars = list(
-      PROJECT_NAME = project_name,
-      AUTHOR       = author,
-      SAMPLES_BLOCK = .build_samples_block(samples), 
+      PROJECT_NAME   = project_name,
+      AUTHOR         = author,
+      DEFAULTS_BLOCK = .build_defaults_block(), 
+      SAMPLES_BLOCK  = .build_samples_block(samples),
       METADATA_BLOCK = .build_metadata_block()
     )
   )
@@ -150,14 +151,26 @@ init_sc_report <- function(project_name,
   writeLines(content, dest)
 }
 
+#' Build the `defaults:` block of a starter params.yml
+#'
+#' Fields shared by every sample. sc_config() merges these into each sample,
+#' where a per-sample value takes precedence.
+#'
+#' @keywords internal
+.build_defaults_block <- function() {
+  paste0(
+    '  library_type: "OCM"   # OCM | 3pv4 | 5p | multiome | Flex\n',
+    '  species: "human"\n'
+  )
+}
+
 #' Build the `samples:` block of a starter params.yml
 #'
 #' @param samples Character vector of sample names, or `NULL` for a single
 #'   placeholder entry.
 #' @param metadata_fields Character vector of descriptive field names to stub
-#'   out under `metadata:`. These are placeholders meant to be renamed per
-#'   project — the package never refers to them by name. Pass `NULL` to omit
-#'   the block entirely.
+#'   as flat keys on each sample. Placeholders meant to be renamed per project —
+#'   the package never refers to them by name. `NULL` omits them.
 #'
 #' @keywords internal
 .build_samples_block <- function(samples,
@@ -165,37 +178,24 @@ init_sc_report <- function(project_name,
   
   md <- if (length(metadata_fields)) {
     paste0(
-      "    # Free-form descriptive fields — rename to suit this project.\n",
+      "    # Descriptive fields — flat keys, rename to suit this project.\n",
       "    # tumour: tissue, population | cell line: treatment, timepoint, coculture\n",
       "    # Quote every value: unquoted yes/no/on/off are read as booleans.\n",
-      "    metadata:\n",
-      paste0('      ', metadata_fields, ': ""\n', collapse = "")
+      paste0('    ', metadata_fields, ': ""\n', collapse = "")
     )
   } else {
     ""
   }
   
-  if (is.null(samples) || length(samples) == 0L) {
-    return(paste0(
-      "  - name: \"sample_01\"\n",
-      "    path: \"data/sample_01/filtered_feature_bc_matrix\"\n",
-      "    raw_path: \"data/sample_01/raw_feature_bc_matrix\"\n",
-      "    library_type: \"OCM\"   # OCM | 3pv4 | 5p | multiome | Flex\n",
-      "    species: \"human\"\n",
-      md
-    ))
-  }
+  one <- function(nm) paste0(
+    "  - name: \"", nm, "\"\n",
+    "    path: \"data/", nm, "/filtered_feature_bc_matrix\"\n",
+    "    raw_path: \"data/", nm, "/raw_feature_bc_matrix\"\n",
+    md
+  )
   
-  paste(vapply(samples, function(nm) {
-    paste0(
-      "  - name: \"", nm, "\"\n",
-      "    path: \"data/", nm, "/filtered_feature_bc_matrix\"\n",
-      "    raw_path: \"data/", nm, "/raw_feature_bc_matrix\"\n",
-      "    library_type: \"\"   # OCM | 3pv4 | 5p | multiome | Flex\n",
-      "    species: \"human\"\n",
-      md
-    )
-  }, character(1)), collapse = "\n")
+  if (is.null(samples) || length(samples) == 0L) return(one("sample_01"))
+  paste(vapply(samples, one, character(1)), collapse = "\n")
 }
 
 #' Build the `metadata_labels:` block of a starter params.yml

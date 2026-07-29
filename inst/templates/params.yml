@@ -11,35 +11,33 @@ project:
   seed: 42
 
 # =============================================================================
+# DEFAULTS
+# Fields shared by every sample. Overridable per sample: a value set on a
+# sample wins over the default here.
+#   library_type : "OCM" | "3pv4" | "5p" | "multiome" | "Flex"
+#   species      : defaults to "human"
+# =============================================================================
+defaults:
+{{DEFAULTS_BLOCK}}
+
+# =============================================================================
 # SAMPLES
-# One entry per sample. Core fields are fixed; everything descriptive goes
-# under metadata:.
-#
-# name         : sample identifier, reused throughout the report
-# path         : path to filtered_feature_bc_matrix (.h5 or directory)
-# raw_path     : path to raw_feature_bc_matrix (optional but recommended for decontX)
-# library_type : "OCM" | "3pv4" | "5p" | "multiome" | "Flex"
-# species      : optional, defaults to "human"
-#
-# metadata     : free-form descriptive fields, named per project. The keys are
-#                yours — sc_config() discovers them, adds them to meta.data and
-#                gives each one a colour palette.
-#                  tumour project    : tissue, population
-#                  cell line project : treatment, timepoint, coculture
-#                All samples should declare the same fields (missing ones
-#                become NA and trigger a warning at load).
-#                Quote text values — unquoted yes/no/on/off are read as
-#                booleans by YAML.
+# One entry per sample.
+#   name         : sample identifier, reused throughout the report
+#   path         : path to filtered_feature_bc_matrix (.h5 or directory)
+#   raw_path     : path to raw_feature_bc_matrix (optional, for decontX)
+#   <descriptive>: any number of flat keys (treatment, timepoint, tissue, ...).
+#                  sc_config() discovers them and gives each a colour palette.
+#                  Quote text values — unquoted yes/no/on/off become booleans.
 # =============================================================================
 samples:
 {{SAMPLES_BLOCK}}
 
 # =============================================================================
 # METADATA_LABELS (optional)
-# Display names for the metadata: fields above — used in plot titles and
+# Display names for the descriptive sample fields — used in plot titles and
 # legends. Optional and partial: any field left out keeps its own key as its
-# label. Only worth setting when the key itself can't carry the wording you
-# want (accents, spaces, symbols).
+# label. Keys must match the descriptive fields declared in samples:
 # =============================================================================
 metadata_labels:
 {{METADATA_BLOCK}}
@@ -48,7 +46,7 @@ metadata_labels:
 # QC
 # Default thresholds apply to all samples.
 # Per-sample overrides replace the default for that sample only.
-# 
+#
 # MANDATORY: All parameters must have a value
 # =============================================================================
 qc:
@@ -82,7 +80,7 @@ decontX:
 # =============================================================================
 # NORMALISATION
 # method: Normalisation method among: "SCTransform" or "LogNormalize"
-# 
+#
 # vars_to_regress: NULL or variable to regress
 # =============================================================================
 normalization:
@@ -151,15 +149,15 @@ annotation:
   panhuman_azimuth:
     run: true
     min_score: 0.5   # cells below this score flagged as uncertain
-    
+
 # =============================================================================
-# COLOURS — all optional, defaults are auto-generated from the metadata: fields
+# COLOURS — all optional, defaults are auto-generated from the descriptive sample fields
 #
 # Two independent override levels:
 #   palettes:  <field>: <ColorBrewer palette>   swap the whole palette
 #   colors:    <field>: {<level>: <hex>}        pin individual levels
 #
-# Field names must match your metadata: keys. Quote the level keys — unquoted
+# Field names must match your descriptive sample field names. Quote the level keys — unquoted
 # yes/no/on/off are read as booleans by YAML.
 # =============================================================================
 #palettes:
