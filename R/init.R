@@ -65,10 +65,14 @@ init_sc_report <- function(project_name,
       METADATA_BLOCK = .build_metadata_block()
     )
   )
+  
+  # add project name in the name of the report file
+  safe_name <- gsub("[^A-Za-z0-9._-]+", "_", project_name)
+  qmd_name  <- paste0("analysis_", safe_name, ".qmd")
 
   .fill_template(
     src  = file.path(tmpl_dir, "analysis.qmd"),
-    dest = file.path(proj_dir, "analysis.qmd"),
+    dest = file.path(proj_dir, qmd_name),
     vars = list(
       PROJECT_NAME = project_name,
       AUTHOR       = author
@@ -129,7 +133,7 @@ init_sc_report <- function(project_name,
   cli::cli_ul(c(
     "Directory  : {.path {proj_dir}}",
     "Edit       : {.path {file.path(proj_dir, 'params.yml')}}",
-    "Render     : {.code quarto::quarto_render('analysis.qmd')}"
+    "Render     : {.code quarto::quarto_render('{qmd_name}')}"
   ))
 
   if (open && requireNamespace("rstudioapi", quietly = TRUE) &&
