@@ -142,9 +142,15 @@ sc_filter <- function(obj_list, thresholds_list, remove_doublets = TRUE) {
       obj$nFeature_RNA <= thr$max_features &
       obj$nCount_RNA   >= thr$min_counts   &
       obj$nCount_RNA   <= thr$max_counts   &
-      obj$log10_genes_per_umi >= thr$min_log10_genes_per_umi &
-      (is.na(obj$decontX_contamination) |
-         obj$decontX_contamination <= (thr$max_conta %||% 0.75))
+      obj$log10_genes_per_umi >= thr$min_log10_genes_per_umi
+    
+    # Contamination filter only if decontX ran (column present, with signal)
+    if ("decontX_contamination" %in% colnames(obj@meta.data) &&
+        !all(is.na(obj$decontX_contamination))) {
+      keep <- keep &
+        (is.na(obj$decontX_contamination) |
+           obj$decontX_contamination <= (thr$max_conta %||% 0.75))
+    }
     
     # Apply MT filter only if column exists and has signal
     if ("percent.mt" %in% colnames(obj@meta.data) &&
@@ -161,7 +167,15 @@ sc_filter <- function(obj_list, thresholds_list, remove_doublets = TRUE) {
     }
     
 
-    if (remove_doublets) keep <- keep & obj$scDblFinder_class == "singlet"
+    if (isTRUE(remove_doublets)) {
+      if ("scDblFinder_class" %in% colnames(obj@meta.data)) {
+        keep <- keep & obj$scDblFinder_class == "singlet"
+      } else {
+        cli::cli_warn(
+          "{sname}: {.field scDblFinder_class} absent \u2014 doublet removal skipped."
+        )
+      }
+    }
 
     n1 <- sum(keep)
     cli::cli_alert_info(
