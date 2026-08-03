@@ -23,26 +23,52 @@ configuration file and rendered as a self-contained Quarto HTML report.
 
 ## Installation
 
+`scReportR` is installed from GitHub. The command below requires the
+`remotes` package:
+
 ```r
-# Install from GitHub
-devtools::install_github("pfgt-bioinfo/scReportR")
+# install.packages("remotes")
+remotes::install_github("pfgt-bioinfo/scReportR")
 ```
 
-**Dependencies** — the following Bioconductor packages must be installed
-separately:
+Some dependencies must be installed beforehand.
+
+### Bioconductor packages
 
 ```r
+# install.packages("BiocManager")
 BiocManager::install(c(
-  "SingleCellExperiment", "scDblFinder",
-  "celda", "celldex", "SingleR", "BiocParallel"
+  "SingleCellExperiment",
+  "scDblFinder",
+  "celda",
+  "celldex",
+  "SingleR",
+  "BiocParallel",
+  "scrapper"
 ))
 ```
 
-Optional:
+### CRAN packages
+
+```r
+install.packages(c(
+  "scCustomize",
+  "hdf5r",
+  "leidenbase"
+))
+```
+
+### GitHub packages
+
+```r
+remotes::install_github("immunogenomics/presto")
+```
+
+### Optional
 
 ```r
 # Pan-Human Azimuth (cloud annotation)
-devtools::install_github("satijalab/AzimuthAPI")
+remotes::install_github("satijalab/AzimuthAPI")
 
 # Cluster stability visualisation
 install.packages("clustree")
