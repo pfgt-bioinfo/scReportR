@@ -81,27 +81,57 @@
 <div class="section level2">
 <h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
 </h2>
+<p><code>scReportR</code> is installed from GitHub. The command below requires the <code>remotes</code> package:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Install from GitHub</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"pfgt-bioinfo/scReportR"</span><span class="op">)</span></span></code></pre></div>
-<p><strong>Dependencies</strong> — the following Bioconductor packages must be installed separately:</p>
+<code class="sourceCode R"><span><span class="co"># install.packages("remotes")</span></span>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"pfgt-bioinfo/scReportR"</span><span class="op">)</span></span></code></pre></div>
+<p>Some dependencies must be installed beforehand.</p>
+<div class="section level3">
+<h3 id="bioconductor-packages">Bioconductor packages<a class="anchor" aria-label="anchor" href="#bioconductor-packages"></a>
+</h3>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu">BiocManager</span><span class="fu">::</span><span class="fu"><a href="https://bioconductor.github.io/BiocManager/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
-<span>  <span class="st">"SingleCellExperiment"</span>, <span class="st">"scDblFinder"</span>,</span>
-<span>  <span class="st">"celda"</span>, <span class="st">"celldex"</span>, <span class="st">"SingleR"</span>, <span class="st">"BiocParallel"</span></span>
+<code class="sourceCode R"><span><span class="co"># install.packages("BiocManager")</span></span>
+<span><span class="fu">BiocManager</span><span class="fu">::</span><span class="fu"><a href="https://bioconductor.github.io/BiocManager/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>  <span class="st">"SingleCellExperiment"</span>,</span>
+<span>  <span class="st">"scDblFinder"</span>,</span>
+<span>  <span class="st">"celda"</span>,</span>
+<span>  <span class="st">"celldex"</span>,</span>
+<span>  <span class="st">"SingleR"</span>,</span>
+<span>  <span class="st">"BiocParallel"</span>,</span>
+<span>  <span class="st">"scrapper"</span></span>
 <span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p>Optional:</p>
+</div>
+<div class="section level3">
+<h3 id="cran-packages">CRAN packages<a class="anchor" aria-label="anchor" href="#cran-packages"></a>
+</h3>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
+<span>  <span class="st">"scCustomize"</span>,</span>
+<span>  <span class="st">"hdf5r"</span>,</span>
+<span>  <span class="st">"leidenbase"</span></span>
+<span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="github-packages">GitHub packages<a class="anchor" aria-label="anchor" href="#github-packages"></a>
+</h3>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"immunogenomics/presto"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="optional">Optional<a class="anchor" aria-label="anchor" href="#optional"></a>
+</h3>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Pan-Human Azimuth (cloud annotation)</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"satijalab/AzimuthAPI"</span><span class="op">)</span></span>
+<span><span class="fu">remotes</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"satijalab/AzimuthAPI"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Cluster stability visualisation</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/utils/install.packages.html" class="external-link">install.packages</a></span><span class="op">(</span><span class="st">"clustree"</span><span class="op">)</span></span></code></pre></div>
 </div>
+</div>
 <div class="section level2">
 <h2 id="quick-start">Quick start<a class="anchor" aria-label="anchor" href="#quick-start"></a>
 </h2>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">scReportR</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 1. Initialise a new project</span></span>
@@ -160,7 +190,7 @@ sc_config()          # load parameters, set up directories &amp; palettes
 </h2>
 <p>Copy <code>params.yml</code> and <code>analysis.qmd</code> from a previous project, update the <code>project</code> block and <code>samples</code> list, and you are ready to run. The package code never needs to be modified for standard analyses.</p>
 <p>To free disk space after finalising:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/sc_cache_finalize.html">sc_cache_finalize</a></span><span class="op">(</span><span class="va">cfg</span>, dry_run <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>   <span class="co"># preview</span></span>
 <span><span class="fu"><a href="reference/sc_cache_finalize.html">sc_cache_finalize</a></span><span class="op">(</span><span class="va">cfg</span>, dry_run <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span>  <span class="co"># confirm</span></span></code></pre></div>
 </div>

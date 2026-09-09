@@ -11,15 +11,42 @@ sc_config(params_file = "params.yml")
 in the current working directory.}
 }
 \value{
-A named list of project parameters (the full parsed YAML).
+The full parsed YAML as a named list, plus:
+\describe{
+\item{\code{.sample_meta}}{Data frame, one row per sample: the core fields
+plus one column per metadata field.}
+\item{\code{.meta_fields}}{Character vector of the metadata fields discovered
+in \code{params.yml}. Iterate over this rather than naming fields.}
+\item{\code{.labels}}{Named list of display labels, one per metadata field.
+Defaults to the field name; override via \verb{metadata_labels:}.}
+\item{\code{.colors}}{Named list of colour vectors: one per metadata field,
+plus \code{library_type} and \code{samples}. Palettes are chosen automatically;
+override the whole palette via \verb{palettes:} or individual levels via
+\verb{colors:}.}
+}
 }
 \description{
 Reads \code{params.yml}, creates output/cache directories, sets the random seed,
 registers BiocParallel workers, and returns a named list of all parameters.
 This should be the first call in \code{analysis.qmd}.
 }
+\details{
+Descriptive sample fields are declared under each sample's \verb{metadata:} block
+and are \strong{not} hard-coded: whatever keys you use there are discovered at load
+time, flattened into \code{cfg$.sample_meta}, listed in \code{cfg$.meta_fields}, and
+given a colour palette in \code{cfg$.colors}. This lets the same code serve a
+tumour project (\code{tissue}, \code{population}) and a cell-line project
+(\code{treatment}, \code{timepoint}, \code{coculture}) without modification.
+}
 \examples{
 \dontrun{
 cfg <- sc_config("params.yml")
+
+# Iterate over whatever fields this project happens to declare
+for (f in cfg$.meta_fields) {
+  print(scCustomize::DimPlot_scCustom(
+    merged, group.by = f, colors_use = cfg$.colors[[f]]
+  ) + ggplot2::ggtitle(cfg$.labels[[f]]))
+}
 }
 }
