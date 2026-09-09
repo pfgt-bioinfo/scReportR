@@ -186,7 +186,7 @@ sc_export_metadata <- function(merged, cfg) {
     dplyr::select(
       cell_barcode,
       sample_id,
-      dplyr::any_of(c("tissue", "library_type", "population", "species")),
+      dplyr::any_of(c("library_type", "species", cfg$.meta_fields)),
       dplyr::starts_with("clusters_"),
       dplyr::contains("singler"),
       dplyr::contains("azimuth"),

@@ -1,0 +1,20 @@
+/*-- scss:defaults --*/
+$web-font-path: false;
+$font-family-sans-serif: "Source Sans 3", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !default;
+
+/*-- scss:rules --*/
+@font-face {
+  font-family: "Source Sans 3";
+  font-weight: 300; font-style: normal; font-display: swap;
+  src: url("styles/fonts/source-sans-3-latin-300-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Source Sans 3";
+  font-weight: 400; font-style: normal; font-display: swap;
+  src: url("styles/fonts/source-sans-3-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Source Sans 3";
+  font-weight: 700; font-style: normal; font-display: swap;
+  src: url("styles/fonts/source-sans-3-latin-700-normal.woff2") format("woff2");
+}

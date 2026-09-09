@@ -56,7 +56,7 @@ sc_qc_summary <- function(obj_list) {
     )
 
     # Optional metadata columns — included only when available
-    for (col in c("tissue", "population", "species")) {
+    for (col in cfg$.meta_fields) {
       if (col %in% colnames(meta)) {
         row[[col]] <- .meta_unique(meta, col)
       }
@@ -104,13 +104,9 @@ sc_qc_thresholds_df <- function(thresholds_list, cfg) {
 #' @keywords internal
 .resolve_palette <- function(col, cfg) {
   if (is.null(cfg)) return(NULL)
-  switch(col,
-    sample_id    = cfg$.colors$samples,
-    library_type = cfg$.colors$library_type,
-    tissue       = cfg$.colors$tissue,
-    population   = cfg$.colors$population,
-    NULL
-  )
+  # `name` becomes the `sample_id` column, but its palette is keyed `samples`.
+  if (identical(col, "sample_id")) return(cfg$.colors$samples)
+  cfg$.colors[[col]]
 }
 
 #' Pick the best available categorical metadata column for fill/colour

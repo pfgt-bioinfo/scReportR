@@ -58,15 +58,21 @@ init_sc_report <- function(project_name,
     src  = file.path(tmpl_dir, "params.yml"),
     dest = file.path(proj_dir, "params.yml"),
     vars = list(
-      PROJECT_NAME = project_name,
-      AUTHOR       = author,
-      SAMPLES_BLOCK = .build_samples_block(samples)
+      PROJECT_NAME   = project_name,
+      AUTHOR         = author,
+      DEFAULTS_BLOCK = .build_defaults_block(), 
+      SAMPLES_BLOCK  = .build_samples_block(samples),
+      METADATA_BLOCK = .build_metadata_block()
     )
   )
+  
+  # add project name in the name of the report file
+  safe_name <- gsub("[^A-Za-z0-9._-]+", "_", project_name)
+  qmd_name  <- paste0("analysis_", safe_name, ".qmd")
 
   .fill_template(
     src  = file.path(tmpl_dir, "analysis.qmd"),
-    dest = file.path(proj_dir, "analysis.qmd"),
+    dest = file.path(proj_dir, qmd_name),
     vars = list(
       PROJECT_NAME = project_name,
       AUTHOR       = author
@@ -78,10 +84,32 @@ init_sc_report <- function(project_name,
   styles_dest <- file.path(proj_dir, "styles")
   
   if (dir.exists(styles_src)) {
+    # Recursive: styles/fonts/ holds the .woff2 that pfgt_theme.scss declares
+    # via @font-face, and embed-resources inlines them at render time — a
+    # missing font is a hard Quarto error, not a fallback.
+    files <- list.files(styles_src, recursive = TRUE)   # relative paths, files only
+    
+    subdirs <- setdiff(unique(dirname(files)), ".")
+    for (d in subdirs) {
+      dir.create(file.path(styles_dest, d), recursive = TRUE, showWarnings = FALSE)
+    }
     dir.create(styles_dest, showWarnings = FALSE)
-    files <- list.files(styles_src, full.names = TRUE)
-    file.copy(files, styles_dest)
-    cli::cli_alert_success("Styles copied: {length(files)} file(s)")
+    
+    ok <- file.copy(
+      file.path(styles_src, files),
+      file.path(styles_dest, files),
+      overwrite = TRUE
+    )
+    
+    # file.copy() never errors — it returns FALSE. Say so, or the next missing
+    # asset will surface as a Quarto error three steps later.
+    if (!all(ok)) {
+      cli::cli_abort(c(
+        "Could not copy {sum(!ok)} style asset{?s}:",
+        "x" = "{.file {files[!ok]}}"
+      ))
+    }
+    cli::cli_alert_success("Styles copied: {length(files)} file{?s}")
   }
 
   # ── RStudio project file ────────────────────────────────────────────────────
@@ -105,7 +133,7 @@ init_sc_report <- function(project_name,
   cli::cli_ul(c(
     "Directory  : {.path {proj_dir}}",
     "Edit       : {.path {file.path(proj_dir, 'params.yml')}}",
-    "Render     : {.code quarto::quarto_render('analysis.qmd')}"
+    "Render     : {.code quarto::quarto_render('{qmd_name}')}"
   ))
 
   if (open && requireNamespace("rstudioapi", quietly = TRUE) &&
@@ -122,33 +150,77 @@ init_sc_report <- function(project_name,
 .fill_template <- function(src, dest, vars) {
   content <- paste(readLines(src, warn = FALSE), collapse = "\n")
   for (nm in names(vars)) {
-    content <- gsub(paste0("\\{\\{", nm, "\\}\\}"), vars[[nm]], content)
+    content <- gsub(paste0("{{", nm, "}}"), vars[[nm]], content, fixed = TRUE)
   }
   writeLines(content, dest)
 }
 
+#' Build the `defaults:` block of a starter params.yml
+#'
+#' Fields shared by every sample. sc_config() merges these into each sample,
+#' where a per-sample value takes precedence.
+#'
 #' @keywords internal
-.build_samples_block <- function(samples) {
-  if (is.null(samples) || length(samples) == 0L) {
-    return(paste0(
-      "  - name: \"sample_01\"\n",
-      "    path: \"data/sample_01/filtered_feature_bc_matrix\"\n",
-      "    raw_path: \"data/sample_01/raw_feature_bc_matrix\"\n",
-      "    library_type: \"OCM\"   # OCM | 3pv4 | 5p | multiome\n",
-      "    tissue: \"T1\"\n",
-      "    population: \"CD45neg\"\n"
-    ))
-  }
+.build_defaults_block <- function() {
+  paste0(
+    '  library_type: "OCM"   # OCM | 3pv4 | 5p | multiome | Flex\n',
+    '  species: "human"\n'
+  )
+}
 
-  paste(sapply(seq_along(samples), function(i) {
-    nm <- samples[i]
+#' Build the `samples:` block of a starter params.yml
+#'
+#' @param samples Character vector of sample names, or `NULL` for a single
+#'   placeholder entry.
+#' @param metadata_fields Character vector of descriptive field names to stub
+#'   as flat keys on each sample. Placeholders meant to be renamed per project —
+#'   the package never refers to them by name. `NULL` omits them.
+#'
+#' @keywords internal
+.build_samples_block <- function(samples,
+                                 metadata_fields = c("condition", "timepoint")) {
+  
+  md <- if (length(metadata_fields)) {
     paste0(
-      "  - name: \"", nm, "\"\n",
-      "    path: \"data/", nm, "/filtered_feature_bc_matrix\"\n",
-      "    raw_path: \"data/", nm, "/raw_feature_bc_matrix\"\n",
-      "    library_type: \"\"   # OCM | 3pv4 | 5p | multiome\n",
-      "    tissue: \"\"\n",
-      "    population: \"\"\n"
+      "    # Descriptive fields — flat keys, rename to suit this project.\n",
+      "    # tumour: tissue, population | cell line: treatment, timepoint, coculture\n",
+      "    # Quote every value: unquoted yes/no/on/off are read as booleans.\n",
+      paste0('    ', metadata_fields, ': ""\n', collapse = "")
     )
-  }), collapse = "\n")
+  } else {
+    ""
+  }
+  
+  one <- function(nm) paste0(
+    "  - name: \"", nm, "\"\n",
+    "    path: \"data/", nm, "/filtered_feature_bc_matrix\"\n",
+    "    raw_path: \"data/", nm, "/raw_feature_bc_matrix\"\n",
+    md
+  )
+  
+  if (is.null(samples) || length(samples) == 0L) return(one("sample_01"))
+  paste(vapply(samples, one, character(1)), collapse = "\n")
+}
+
+#' Build the `metadata_labels:` block of a starter params.yml
+#'
+#' Emits one commented `field: "Field"` line per metadata field. Kept commented
+#' so the block stays inert: labels are optional, and an active block naming the
+#' placeholder fields would trip sc_config()'s stray-label warning the moment a
+#' user renames their metadata: fields without updating the labels.
+#'
+#' @param metadata_fields Character vector, the same fields stubbed under each
+#'   sample's `metadata:` by [.build_samples_block()]. `NULL` yields a single
+#'   placeholder comment.
+#'
+#' @keywords internal
+.build_metadata_block <- function(metadata_fields = c("condition", "timepoint")) {
+  if (!length(metadata_fields)) return("  # condition: \"Condition\"\n")
+  
+  # "condition" -> "Condition": a readable default the user can edit or delete.
+  labels <- paste0(
+    toupper(substring(metadata_fields, 1L, 1L)),
+    substring(metadata_fields, 2L)
+  )
+  paste0('  # ', metadata_fields, ': "', labels, '"\n', collapse = "")
 }
